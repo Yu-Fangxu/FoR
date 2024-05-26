@@ -6,6 +6,7 @@ Blocksworld problems capture commonsense block manipulations and consist of a se
 A model needs to give a sequence of actions to rearrange blocks into stacks in a particular order. A state is defined as the current orientation of the blocks, and an action is a textual instruction to move these blocks. An action involves one of four verbs (*STACK, UNSTACK, PUT, PICKUP*) and targeted objects. We generate valid actions based on domain restrictions and the current block orientation. To transit between states, the LLM is prompted to predict the next state $s_t$ based on the last state $s_{t-1}$ and current action $a_t$. The planning process is terminated once a state meets all goal conditions or reaches a maximum step limit. 
 
 ## Code
+**1) Setup Environment
 We recommend conda for setting up a reproducible experiment environment. We include `environment.yaml` for creating a working environment:
 
 ```bash
@@ -16,8 +17,20 @@ To run the Llama-3 model, you will need to request access at Huggingface and set
 ```
 huggingface-cli login --token [Your Hugging face token]
 ```
+**2) Run Command for GFlowPlanner
 
-## Run Command for GFlowPlanner
+* 2-step planning
 ```
-bash run.sh
+bash run.sh 2
 ```
+
+* 4-step planning
+```
+bash run.sh 4
+```
+
+* 6-step planning
+```
+bash run.sh 6
+```
+
