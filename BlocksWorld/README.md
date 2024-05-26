@@ -13,6 +13,8 @@ We recommend conda for setting up a reproducible experiment environment. We incl
 conda env create -f environment.yaml -n gflowplanner
 ```
 
+Set up `VAL` following [this guide](gpt-plan-benchmark/gpt_plan_test/README.md) and make sure you set the environment variable ```export VAL="YOUR_PATH_TO_VAL"```
+
 To run the Llama-3 model, you will need to request access at Huggingface and set up account login:
 ```
 huggingface-cli login --token [Your Hugging face token]
