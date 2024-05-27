@@ -1,13 +1,5 @@
 # GFlowPlanner for Math Reasoning (Game24)
 
-## Task Introduction
-
-
-
-
-
-## Code
-
 1) **Setup**
 
 `pip install -r requirements.txt`
