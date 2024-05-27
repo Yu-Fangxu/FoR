@@ -27,7 +27,7 @@ git clone https://github.com/Yu-Fangxu/COLD-Attack.git
 
 **2) Choose one of 3 tasks to run**
 ```
-cd BlocksWorld|Game24|Logical
+cd BlocksWorld|Game24|prontoqa
 ```
 
 <br> **If you find our repository helpful to your research, please consider citing:** <br>
