@@ -1,8 +1,8 @@
-# GFlowPlanner: Efficient Training of LLM Policy for Diverse Reasoning
+# Flow of Reasoning: Efficient Training of LLM Policy for Diverse Reasoning
 
 We focus on generating diverse solution trajectories in multi-step reasoning problems. Specifically, we formulate LLM reasoning as a Markovian flow from an initial state to terminals and adapt the GFlowNets training approach to enable diverse reasoning and apply our method to embodied reasoning (BlocksWorld), puzzle solving (Game of 24), and logical reasoning (PrOntoQA) tasks. 
 
-Our GFlowPlanner leads to:
+Our Flow of Reasoning (FoR) leads to:
 
 1. Diverse-Reasoning: Multiple reasoning solutions to the reasoning tasks can be found via sampling.
 2. Sample-Efficiency: Limited data (e.g. 15 examples) can train the LLM policy well.
