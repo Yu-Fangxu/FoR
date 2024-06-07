@@ -1,4 +1,4 @@
-# GFlowPlanner for Embodied Reasoning (BlocksWorld)
+# FoR for Embodied Reasoning (BlocksWorld)
 
 ## Task Introduction
 Blocksworld problems capture commonsense block manipulations and consist of a set of blocks. Blocks are identified with unique colors and placed on a table or on top of other blocks. The goal is to arrange some of these blocks in a stack in a particular order.
@@ -10,7 +10,7 @@ A model needs to give a sequence of actions to rearrange blocks into stacks in a
 We recommend conda for setting up a reproducible experiment environment. We include `environment.yaml` for creating a working environment:
 
 ```bash
-conda env create -f environment.yaml -n gflowplanner
+conda env create -f environment.yaml -n FoR
 ```
 
 Set up `VAL` following [this guide](gpt-plan-benchmark/gpt_plan_test/README.md) and make sure you set the environment variable ```export VAL="YOUR_PATH_TO_VAL"```
