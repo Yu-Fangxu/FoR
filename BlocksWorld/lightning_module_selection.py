@@ -80,7 +80,7 @@ class BlocksWorldGFNTask(LightningModule):
         self.reward_temperature = self.args.reward_temp_start
         self.pf_temperature = self.args.pf_temp_start
         self.use_buffer_prob = self.args.use_buffer_prob
-        with open(f"/prompts/pool_prompt_v2_step_{args.step}.json") as f:
+        with open(f"./prompts/pool_prompt_v2_step_{args.step}.json") as f:
             self.init_prompt = json.load(f)
         
         bnb_config = BitsAndBytesConfig(
