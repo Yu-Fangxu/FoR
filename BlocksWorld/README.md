@@ -7,18 +7,19 @@ A model needs to give a sequence of actions to rearrange blocks into stacks in a
 
 ## Code
 **1) Setup Environment**
-We recommend conda for setting up a reproducible experiment environment. We include `environment.yaml` for creating a working environment:
-
-```bash
-conda env create -f environment.yaml -n FoR
-```
-
-Set up `VAL` following [this guide](gpt-plan-benchmark/gpt_plan_test/README.md) and make sure you set the environment variable ```export VAL="YOUR_PATH_TO_VAL"```
+After installing the environments, you need to set up `VAL` following [this guide](gpt-plan-benchmark/gpt_plan_test/README.md) and make sure you set the environment variable ```export VAL="YOUR_PATH_TO_VAL"```
 
 To run the Llama-3 model, you will need to request access at Huggingface and set up account login:
 ```
 huggingface-cli login --token [Your Hugging face token]
 ```
+
+Finally, add your Open-AI key:
+```
+export OPENAI_API_KEY=[Your OpenAI key]
+```
+Note: You could just set the OPENAI_API_KEY=1 or any strings since we do not use GPT series.
+
 **2) Run Command for Planning in BlocksWorld**
 
 * 2-step planning
