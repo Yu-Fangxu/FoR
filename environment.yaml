@@ -67,7 +67,7 @@ dependencies:
     - httpx==0.27.0
     - huggingface-hub==0.21.3
     - humanfriendly==10.0
-    - hydra-core==0.11.3
+    - hydra-core
     - idna==3.6
     - ipykernel==6.25.2
     - ipython==8.22.2
@@ -106,7 +106,7 @@ dependencies:
     - nvidia-nccl-cu12==2.19.3
     - nvidia-nvjitlink-cu12==12.3.101
     - nvidia-nvtx-cu12==12.1.105
-    - omegaconf
+    - omegaconf==2.3.0
     - openai==0.28.0
     - optimum==1.17.1
     - packaging==23.2
@@ -149,7 +149,7 @@ dependencies:
     - sniffio==1.3.1
     - stack-data==0.6.3
     - sympy==1.12
-    - tarski==0.8.2
+    - tarski
     - termcolor==2.4.0
     - tokenizers==0.19.1
     - torch==2.2.1
