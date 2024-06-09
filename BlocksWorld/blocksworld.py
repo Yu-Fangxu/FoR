@@ -59,7 +59,6 @@ def blocksworld_planning(model, tokenizer, device, args, model_back=None):
             train_data=train_probes,
             val_data=val_probes)
 
-    # # Here we adopt deepspeed to accelerate the training
     trainer.fit(model=task, datamodule=data)
     transition_path = f"/transitions/{args.step}/transition.pkl"
     with open(transition_path, 'wb') as f:

@@ -3,8 +3,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training, PeftModel
 
 def load_model(args, device):
-    if args.checkpoint_path:  # 如果指定了checkpoint路径
-        # 从checkpoint加载模型
+    if args.checkpoint_path:  
         model = PeftModel.from_pretrained(args.pretrained_model,args.checkpoint_path,is_trainable = True)
         tokenizer = AutoTokenizer.from_pretrained(args.checkpoint_path)
     else:
@@ -44,7 +43,6 @@ def load_model(args, device):
         # Apply LoRA to the model
         model = get_peft_model(model, lora_config)
     elif args.test_only and args.load_checkpoint_path is not None:
-        # 如果是测试模式且指定了加载路径，这里的逻辑可能需要根据PeftModel.from_pretrained方法的实际使用调整
         model = PeftModel.from_pretrained(model, args.load_checkpoint_path)
 
     return model, tokenizer

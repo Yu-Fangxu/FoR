@@ -9,7 +9,6 @@ from bw_utils import *
 import yaml
 import json
 import bitsandbytes as bnb
-# from deepspeed.ops.adam import DeepSpeedCPUAdam, FusedAdam
 import csv
 import re
 import pickle
@@ -128,11 +127,8 @@ class BlocksWorldGFNTask(LightningModule):
 
     def training_step(self, problem, batch_idx):
         INIT, GOAL, PLAN = problem
-        # print(INIT)
         GOAL = GOAL[0]
         INIT = INIT[0]
-        # print("goal:\n", GOAL)
-        # print("init:\n", INIT)
         initial_state = f'I have that, {INIT}.'
         goal = f'My goal is to have that {GOAL}.'
         actions = PLAN
@@ -225,8 +221,6 @@ class BlocksWorldGFNTask(LightningModule):
 
                 if log_reward > best_reward:
                     LOG_R.append(torch.log(reward + ll_weight * ll_reward.sum()))
-                    # print("generated reward: \n", reward)
-                    # print("generated ll: \n",  ll_reward)
                     generated_text = (actions, states)
                     self.replay_buffer.add(GOAL + INIT, str(generated_text), sample, torch.log(reward + ll_weight * ll_reward.sum()))
                     log_pf, log_bf = self.forward_prob(f"have that {GOAL}.", actions, states)
@@ -272,7 +266,6 @@ class BlocksWorldGFNTask(LightningModule):
             batch_size=self.args.batch_size
         )
 
-        # print(list(self.traj.values()))
 
         return loss
         
@@ -286,8 +279,6 @@ class BlocksWorldGFNTask(LightningModule):
         INIT, GOAL, PLAN = problem
         GOAL = GOAL[0]
         INIT = INIT[0]
-        # print(GOAL)
-        # print(INIT)
         total_success = 0
         total_solution = 0
         success_text = []
@@ -339,7 +330,6 @@ class BlocksWorldGFNTask(LightningModule):
         )
 
     def validation_step(self, problem, batch_idx):
-        # pass
         if self.args.use_lora:
             base_to_lora(self.model)    # 确保转换成lora
         self.model.eval()           # 必须用eval
@@ -462,16 +452,9 @@ class BlocksWorldGFNTask(LightningModule):
         for step in range(max_steps):
             icl_template = prompt["icl_list"][step // 2]
             icl_template = add_time(icl_template)
-            # if step == 0:
-            #     previous_action = ""
-            #     current_state = last_state
-            # else:
-            #     previous_action = actions[step-1] + "\n"
-            #     current_state = states[step-1]
             previous_action = ""
             current_state = last_state
             allowed_actions = generate_all_actions(last_state)
-            # print(prefix_past)
             allowed_actions_ = [act for act in allowed_actions if act.lower() not in actions]
 
             if len(allowed_actions_) != 0:
@@ -483,7 +466,6 @@ class BlocksWorldGFNTask(LightningModule):
                 else:
                     inputs = icl_template.replace("<init_state>", current_state.lstrip())\
                         .replace("<goals>", goal).replace("<action>", previous_action.lstrip()).replace("<step>", str(step).strip()).strip()
-                    # print(inputs)
                     input_ids = self.tokenizer.encode(inputs.lstrip() + "\n", return_tensors='pt').to(self.device)
                     
                     prefix_output = self.model(input_ids[:, :-1], use_cache=True)
@@ -494,10 +476,8 @@ class BlocksWorldGFNTask(LightningModule):
                         a = ac.lower()
                         action_ids = self.tokenizer.encode(a, add_special_tokens=False,return_tensors='pt').to(self.device)
                         input_ids_with_action = torch.cat([input_ids[:, -1:], action_ids], dim=-1)
-                        # 计算每个动作的输出和对应的 logits
                         outputs = self.model(input_ids_with_action, past_key_values=prefix_past, use_cache=True)
                         logits = outputs.logits  # 获取对应于 action_ids 的 logits
-                        # 计算 log softmax 来得到对数概率
                         total_log_prob = torch.zeros(1).cuda()
                         for i in range(1, input_ids_with_action.shape[-1]):
                             probs = torch.softmax(logits[:, i - 1, :], dim=-1)
@@ -546,12 +526,10 @@ class BlocksWorldGFNTask(LightningModule):
             else:
                 # if s, a, s' have not been observed, use World Model to predict the state and store it.
                 lora_to_base(self.model)
-                # world_output = self.query_LM(self.world_model, self.world_tokenizer, world_update_prompt, do_sample=False, num_return_sequences=1,
-                #                     eos_token_id=eos_token_id)[0]
+                
                 world_output = self.query_LM(self.model, self.world_tokenizer, world_update_prompt, do_sample=False, num_return_sequences=1,
                                     eos_token_id=eos_token_id)[0]
                 world_change = world_output.split("[CHANGE]")[-1]
-                # print(world_change)
                 new_state = apply_change(world_change, last_state)
                 self.transitions[(last_state, last_action)] = new_state
             last_state = new_state
@@ -671,12 +649,6 @@ class BlocksWorldGFNTask(LightningModule):
             
             icl_template = prompt["icl_list"][step // 2]
             icl_template = add_time(icl_template)
-            # if step == 0:
-            #     previous_action = ""
-            #     current_state = last_state
-            # else:
-            #     previous_action = actions[step-1] + "\n"
-            #     current_state = states[step-1]
             previous_action = ""
             current_state = last_state
             allowed_actions = generate_all_actions(last_state)

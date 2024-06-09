@@ -208,7 +208,6 @@ def sample_prompt(init_prompt,
         examples = copy.deepcopy(new_examples)
         icl = get_icl(init_prompt, examples)
         prompt["icl_list"].append(icl)
-    # print("prompt:",  prompt)
     return prompt
 
 def get_icl(init_prompt, examples):

@@ -19,7 +19,6 @@ def extract_last_state(content):
     if match:
         last_state_index = content.rfind(match[-1])
         if last_state_index != -1:
-            # 提取最后一个 [STATE *] 到 \n 之间的内容
             last_state_content = content[last_state_index + len(match[-1]):]
             end_index = last_state_content.find('\n')
             if end_index != -1:
@@ -41,7 +40,6 @@ class BlocksWorldGFNTask(LightningModule):
         super().__init__()
 
         self.args = args
-        #self.save_hyperparameters(ignore=["model, tokenizer"])
         self.logZ = logZ
         self.model = model
         if args.use_lora:
@@ -118,9 +116,7 @@ class BlocksWorldGFNTask(LightningModule):
         ACTIONS = ACTIONS[0]
         QUERY = QUERY[0]
         GT = GT[0]
-        #PLAN = PLAN[0]
-
-        #actions = PLAN
+      
         ########################## Compute the reward for ground-truth trajectory ##########################
 
         LOG_R = []
@@ -170,7 +166,6 @@ class BlocksWorldGFNTask(LightningModule):
                     log_r = torch.log(self.args.ll_weight * ll_reward.mean())
                     LOG_R.append(log_r)
                 
-                #print("generated reward: \n", reward)
                 print("generated ll: \n",  ll_reward)
                 print("trajectory query: \n",  QUERY)
                 print("trajectory states: \n",  states)
@@ -184,7 +179,6 @@ class BlocksWorldGFNTask(LightningModule):
                 print("trajectory actions: \n",  actions)
                 """
                 generated_text = (actions, states)
-                #if self.args.sum_avg == "sum":
                 self.replay_buffer.add(QUERY, str(generated_text), sample, log_r)
 
                 log_pf, log_bf = self.forward_prob(QUERY, ACTIONS, actions, states)
@@ -985,13 +979,11 @@ class BlocksWorldGFNTask(LightningModule):
             dic = json.load(f)
             inputs_template = dic["input"] + dic["facts_format"].format(" ".join(allowed_actions))
        
-        #allowed_actions.append("Finish.")
 
         for step in range(len(actions)):
 
             inputs = inputs_template + dic["target_format"].format(query) + dic["claim_format"].format(last_state) + dic["next_step_prefix"] + " "
 
-            #print("forward_prob--inputs:\n",inputs)
             input_ids = self.tokenizer.encode(inputs, return_tensors='pt').to("cuda:0")
             action = actions[step]
             bsz = len(allowed_actions)  
@@ -1024,7 +1016,6 @@ class BlocksWorldGFNTask(LightningModule):
 
             log_pf.append(torch.log(probabilities[idx]))
             
-            #if step < len(actions)-1:
             last_state = states[step+1]
             
             pb = torch.tensor(1 / len(allowed_actions))

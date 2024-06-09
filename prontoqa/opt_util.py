@@ -17,7 +17,6 @@ def load_model(args, device):
                                                 device_map="auto",
                                                 torch_dtype=torch.bfloat16,
                                                 quantization_config=bnb_config)
-        # model.gradient_checkpointing_enable()
         model = prepare_model_for_kbit_training(model)
         model.config.use_cache = False
     else:
@@ -26,7 +25,6 @@ def load_model(args, device):
                                                 trust_remote_code=True,
                                                 device_map="cuda:0")
         model.to(device)
-        # model.gradient_checkpointing_enable()
     
     tokenizer = AutoTokenizer.from_pretrained(args.pretrained_model, add_bos_token=False)
 
@@ -46,5 +44,4 @@ def load_model(args, device):
         return model, tokenizer
     if args.test_only and args.load_checkpoint_path is not None:
         model = PeftModel.from_pretrained(model, args.load_checkpoint_path)
-    # model = torch.compile(model)
     return model, tokenizer

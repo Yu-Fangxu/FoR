@@ -8,7 +8,6 @@ import openai
 
 def compute_ppl_line(model, tokenizer, line):
     line = line.strip()
-    #print(line)
     line_ = tokenizer.encode(line)
     line_t = torch.tensor(line_, dtype=torch.long).cuda()
     loss = model(input_ids=line_t, labels=line_t).loss
@@ -38,9 +37,6 @@ def base_to_lora(model):
     model.train()
 
 def tb_loss(log_pf, log_r, logz):
-    # print("log_pf: ", log_pf)
-    # print("log_r: ", log_r)
-    # print("logz: ", logz)
     loss = (log_pf + logz - log_r) ** 2
     return loss.mean()
 

@@ -4,8 +4,7 @@ import numpy as np
 from util import *
 from abc import ABC, abstractmethod
 import torch
-#from llama import LLaMA
-# nltk.download('punkt')
+
 import os
 
 def get_full_reward(gt, actions, sum="sum"):
@@ -19,8 +18,7 @@ def get_full_reward(gt, actions, sum="sum"):
             j += 1
         else:
             break
-    #if (j == num_feasible_actions) and (num_feasible_actions == len(actions)-1) and (actions[num_feasible_actions]) == "Finish.":
-        #reward[num_feasible_actions] += 100
+  
     if sum=="sum":
         ret  = torch.sum(reward, dtype=torch.float32) 
     elif sum == "avg":
@@ -51,7 +49,7 @@ def is_finish(last_state, query):
 
 def compute_ppl_line(model, tokenizer, line):
     line = line.strip()
-    #print(line)
+
     line_ = tokenizer.encode(line)
     line_t = torch.tensor(line_, dtype=torch.long).cuda()
     loss = model(input_ids=line_t, labels=line_t).loss
@@ -151,4 +149,3 @@ class QueryLlama(QueryLM):
         dist = torch.softmax(filtered, dim=-1)
         return dist
 
-#QueryLlama()

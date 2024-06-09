@@ -28,12 +28,7 @@ def chatgpt(messages, model="gpt-4", temperature=0.7, max_tokens=1000, n=1, stop
             res = completions_with_backoff(model=model, messages=messages, temperature=temperature, max_tokens=max_tokens, n=cnt, stop=stop)
         except openai.error.OpenAIError as e:
             print(f"最终失败：{e}", file=sys.stderr)
-        # print(res)
         outputs.extend([choice["message"]["content"] for choice in res["choices"]])
-        # print(outputs)
-        # log completion tokens
-        # completion_tokens += res["usage"]["completion_tokens"]
-        # prompt_tokens += res["usage"]["prompt_tokens"]
     return outputs
 
 def cot_prompt_wrap(x: str, y:str='') -> str:
@@ -47,7 +42,6 @@ def propose_prompt_wrap(x: str, y: str='') -> str:
     current_numbers = get_current_numbers(y if y else x)
     if current_numbers == '24':
         prompt = cot_prompt.format(input=x) + 'Steps:' + y
-        # print([prompt])
     else:
         prompt = propose_prompt.format(input=current_numbers)
     return prompt

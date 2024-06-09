@@ -80,7 +80,6 @@ class ReplayBuffer:
         uniformly sample a batch of items from the buffer,
         and return a stacked tensor
         """
-        # str_prompt = " ".join([str(x) for x in prompt.tolist()])
         if problem not in self._buffer:
             return None, None
         prompt_buffer = self._buffer[problem]["sentences"]

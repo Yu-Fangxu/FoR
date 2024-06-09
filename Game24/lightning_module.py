@@ -197,15 +197,10 @@ class Game24GTNTask(LightningModule):
             new_ys, state_nums= self.get_proposals(query,ys,state_nums,do_val) # ask model 
             if new_ys is None and do_val:
                 return "FAIL", None, None, None, [0]
-            # print("=========newys==========")
-            # print(new_ys) # str: 13 - 6 = 7 (left: 4 7 13)
             if use_gpt_value:
                 values.append(self.get_value(query, new_ys, 1, True)) # ask gpt-4
             infos.append({'step': step, 'x': query, 'ys': ys, 'new_ys': new_ys, 'values': values})
             ys = ys  + new_ys + '\n'
-            # print(state_nums)
-            # print(ys)
-        # 2. sample
         output = cot_prompt_wrap(query,ys)
         ll_reward, inputs, labels = self.get_ll(query,ys)
         attention_mask = torch.ones_like(inputs["input_ids"]).to('cpu')
@@ -219,7 +214,6 @@ class Game24GTNTask(LightningModule):
         else:
             if state_nums[0]=='24': reward = 100
             else: reward = 0.001
-        # ll_reward
         output = "Input: " + query + '\n' + "Steps: \n" + ys
 
         
@@ -233,7 +227,7 @@ class Game24GTNTask(LightningModule):
         logits = outputs.logits
         shift_logits = logits[..., :-1, :].contiguous()
         shift_labels = targets[..., 1:].contiguous()
-        N, L, C = logits.shape  # N是批次大小，L是序列长度，C是类别数
+        N, L, C = logits.shape  
 
         loss_per_token = F.cross_entropy(shift_logits.view(-1, C), shift_labels.view(-1), ignore_index=self.ignore_token_id, reduction='none')
 
