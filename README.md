@@ -14,7 +14,7 @@ Fangxu Yu, Lai Jiang, Haoqiang Kang, Shibo Hao, Lianhui Qin, "[Flow of Reasoning
 
 ![plot](./images/main_arch.png)
 
-Our GFlowPlanner formulates multi-step reasoning tasks as flow:
+Our FoR formulates multi-step reasoning tasks as flow:
 1. Design reward $R(s_n)$ of terminal states for different tasks.
 2. Collect trajectories with the local search technique.
 3. Training LLM policy $P_{F}$ with trajectory balance loss.
