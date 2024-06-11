@@ -1,4 +1,4 @@
-# Flow of Reasoning: Efficient Training of LLM Policy with Diverse Reasoning
+# Flow of Reasoning: Efficient Training of LLM Policy with Divergent Thinking
 
 We focus on generating diverse solution trajectories in multi-step reasoning problems. Specifically, we formulate LLM reasoning as a Markovian flow from an initial state to terminals and adapt the GFlowNets training approach to enable diverse reasoning and apply our method to embodied reasoning (BlocksWorld), puzzle solving (Game of 24), and logical reasoning (PrOntoQA) tasks. 
 
@@ -8,7 +8,7 @@ Our Flow of Reasoning (FoR) leads to:
 2. Sample-Efficiency: Limited data (e.g. 15 examples) can train the LLM policy well.
 
 Find more details in our paper:
-Fangxu Yu, Lai Jiang, Haoqiang Kang, Shibo Hao, Lianhui Qin, "[GFlowPlanner: Efficient Training of LLM Policy for Diverse Reasoning]()" (* Equal contribution)
+Fangxu Yu, Lai Jiang, Haoqiang Kang, Shibo Hao, Lianhui Qin, "[Flow of Reasoning: Efficient Training of LLM Policy with Divergent Thinking](https://arxiv.org/abs/2406.05673)" (* Equal contribution)
 
 ## FoR
 
@@ -39,10 +39,12 @@ cd BlocksWorld|Game24|prontoqa
 
 <br> **If you find our repository helpful to your research, please consider citing:** <br>
 ```
-@article{guo2024cold,
-  title={COLD-Attack: Jailbreaking LLMs with Stealthiness and Controllability},
-  author={Guo, Xingang and Yu, Fangxu and Zhang, Huan and Qin, Lianhui and Hu, Bin},
-  journal={arXiv preprint arXiv:2402.08679},
-  year={2024}
+@misc{yu2024flow,
+      title={Flow of Reasoning: Efficient Training of LLM Policy with Divergent Thinking}, 
+      author={Fangxu Yu and Lai Jiang and Haoqiang Kang and Shibo Hao and Lianhui Qin},
+      year={2024},
+      eprint={2406.05673},
+      archivePrefix={arXiv},
+      primaryClass={cs.AI}
 }
 ```
