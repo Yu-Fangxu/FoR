@@ -8,7 +8,10 @@ Our Flow of Reasoning (FoR) leads to:
 2. Sample-Efficiency: Limited data (e.g. 15 examples) can train the LLM policy well.
 
 Find more details in our paper:
-Fangxu Yu, Lai Jiang, Haoqiang Kang, Shibo Hao, Lianhui Qin, "[Flow of Reasoning: Efficient Training of LLM Policy with Divergent Thinking](https://arxiv.org/abs/2406.05673)" (* Equal contribution)
+Fangxu Yu, Lai Jiang, Haoqiang Kang, Shibo Hao, Lianhui Qin, "[Flow of Reasoning: Efficient Training of LLM Policy with Divergent Thinking](https://arxiv.org/abs/2406.05673)"
+
+![plot](./images/task.png)
+
 
 ## FoR
 
