@@ -14,7 +14,6 @@ from util import *
 
 stop_words = set(stopwords.words('english'))
 
-os.environ["OPENAI_API_KEY"] = "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"
 def options():
     parser = argparse.ArgumentParser()
     ## setting
