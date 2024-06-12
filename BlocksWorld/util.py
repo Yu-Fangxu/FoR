@@ -20,9 +20,6 @@ def base_to_lora(model):
     model.train()
 
 def tb_loss(log_pf, log_r, logz, log_bf=None, logpartition=False):
-    print("log_pf: ", log_pf)
-    print("log_r: ", log_r)
-    print("logz: ", logz)
     if logpartition:
         if log_bf != None:
             scores = log_pf - log_r - log_bf
