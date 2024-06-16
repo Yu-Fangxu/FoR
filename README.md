@@ -43,12 +43,11 @@ cd BlocksWorld|Game24|prontoqa
 
 <br> **If you find our repository helpful to your research, please consider citing:** <br>
 ```
-@misc{yu2024flow,
-      title={Flow of Reasoning: Efficient Training of LLM Policy with Divergent Thinking}, 
-      author={Fangxu Yu and Lai Jiang and Haoqiang Kang and Shibo Hao and Lianhui Qin},
-      year={2024},
-      eprint={2406.05673},
-      archivePrefix={arXiv},
-      primaryClass={cs.AI}
+@article{yu2024flow,
+  title={Flow of Reasoning: Efficient Training of LLM Policy with Divergent Thinking},
+  author={Yu, Fangxu and Jiang, Lai and Kang, Haoqiang and Hao, Shibo and Qin, Lianhui},
+  journal={arXiv e-prints},
+  pages={arXiv--2406},
+  year={2024}
 }
 ```
