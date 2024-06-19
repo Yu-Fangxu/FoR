@@ -46,8 +46,7 @@ cd BlocksWorld|Game24|prontoqa
 @article{yu2024flow,
   title={Flow of Reasoning: Efficient Training of LLM Policy with Divergent Thinking},
   author={Yu, Fangxu and Jiang, Lai and Kang, Haoqiang and Hao, Shibo and Qin, Lianhui},
-  journal={arXiv e-prints},
-  pages={arXiv--2406},
+  journal={arXiv preprint arXiv:2406.05673},
   year={2024}
 }
 ```
