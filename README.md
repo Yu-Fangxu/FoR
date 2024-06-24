@@ -4,8 +4,6 @@ Official code for "[Flow of Reasoning: Efficient Training of LLM Policy with Div
 
 ![plot](./images/task.png)
 
-
-
 ## Training & Inference
 
 ![plot](./images/main_arch.png)
@@ -33,9 +31,9 @@ bash install.sh
 cd BlocksWorld|Game24|prontoqa
 ```
 
-**4) Follow the detailed instructions in each branch** 
+Check more detailed instructions in each branch.
 
-<br> **If you find our repository helpful to your research, please consider citing:** <br>
+## Citation
 ```
 @article{yu2024flow,
   title={Flow of Reasoning: Efficient Training of LLM Policy with Divergent Thinking},
