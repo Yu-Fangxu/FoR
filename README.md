@@ -1,20 +1,12 @@
 # Flow of Reasoning: Efficient Training of LLM Policy with Divergent Thinking
 
-We focus on generating diverse solution trajectories in multi-step reasoning problems. Specifically, we formulate LLM reasoning as a Markovian flow from an initial state to terminals and adapt the GFlowNets training approach to enable diverse reasoning and apply our method to embodied reasoning (BlocksWorld), puzzle solving (Game of 24), and logical reasoning (PrOntoQA) tasks. 
-
-Our Flow of Reasoning (FoR) leads to:
-
-1. Diverse-Reasoning: Multiple reasoning solutions to the reasoning tasks can be found via sampling.
-2. Sample-Efficiency: Limited data (e.g. 15 examples) can train the LLM policy well.
-
-Find more details in our paper:
-Fangxu Yu, Lai Jiang, Haoqiang Kang, Shibo Hao, Lianhui Qin, "[Flow of Reasoning: Efficient Training of LLM Policy with Divergent Thinking](https://arxiv.org/abs/2406.05673)" [[Project Page](https://yu-fangxu.github.io/FoR.github.io/)]
+Official code for "[Flow of Reasoning: Efficient Training of LLM Policy with Divergent Thinking](https://arxiv.org/abs/2406.05673)" Also check our [[Project Page](https://yu-fangxu.github.io/FoR.github.io/)]
 
 ![plot](./images/task.png)
 
 
 
-## FoR
+## Training & Inference
 
 ![plot](./images/main_arch.png)
 
@@ -36,10 +28,12 @@ We recommend conda for setting up a reproducible experiment environment. We incl
 bash install.sh
 ```
 
-**3) Choose one of 3 tasks to run**
+**3) Choose 1 of 3 tasks to run**
 ```
 cd BlocksWorld|Game24|prontoqa
 ```
+
+**4) Follow the detailed instructions in each branch** 
 
 <br> **If you find our repository helpful to your research, please consider citing:** <br>
 ```
