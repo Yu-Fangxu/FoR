@@ -20,6 +20,7 @@ git clone https://github.com/Yu-Fangxu/FoR.git
 ```
 
 **2) Prepare the environment**
+
 We recommend conda for setting up a reproducible experiment environment. We include `environment.yaml` for creating a working environment:
 
 ```
