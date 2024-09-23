@@ -5,7 +5,6 @@ from replay_buffer import ReplayBuffer
 import os
 from util import *
 import torch
-from llama import *
 import warnings
 
 from lightning_module_selection import *
@@ -13,12 +12,6 @@ from lightning_data import *
 
 
 warnings.filterwarnings("ignore")
-
-
-def get_problem(instance, domain):
-    reader = PDDLReader(raise_on_error=True)
-    reader.parse_domain(domain)
-    return reader.parse_instance(instance)
 
 def blocksworld_planning(model, tokenizer, device, args, model_back=None):
     # TODO: load_data here
@@ -59,9 +52,7 @@ def blocksworld_planning(model, tokenizer, device, args, model_back=None):
 
         # # Here we adopt deepspeed to accelerate the training
         trainer.fit(model=task, datamodule=data)
-        model.save_pretrained("/home/fangxu/GFlowPlan/ckpt/6-step")
         print("PEFT saved...")
-        # trainer.test(model=task, datamodule=data)
         trainer.test(ckpt_path="last", dataloaders=data.test_dataloader())
     else:
         model = AutoModelForCausalLM.from_pretrained("/home/fangxu/GFlowPlan/ckpt/6-step")
