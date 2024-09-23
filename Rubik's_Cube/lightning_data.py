@@ -5,8 +5,6 @@ import warnings
 from cube_utils import *
 import pandas as pd
 
-# 读取CSV文件
-
 warnings.filterwarnings("ignore", ".*does not have many workers.*")
 
 class PromptDataModule(LightningDataModule):
@@ -21,45 +19,34 @@ class PromptDataModule(LightningDataModule):
         self.save_hyperparameters(ignore="tokenizer")
         self.tokenizer = tokenizer
         self.args = args
-        self.train_data = pd.read_csv('./data/cube_train.csv')
-        # self.val_data = pd.read_csv('./data/cube_test.csv')
-        self.test_data = pd.read_csv('./data/cube_test.csv')
-        self.train_data['init_state'] = self.train_data.apply(lambda row: ' '.join(map(str, row[['state_{}'.format(i) for i in range(1, 25)]])), axis=1)
-        self.test_data['init_state'] = self.test_data.apply(lambda row: ' '.join(map(str, row[['state_{}'.format(i) for i in range(1, 25)]])), axis=1)
+        
         # 提取moves
         self.val_data = None
+        self.train_data = None
 
     def setup(self, stage):
         all_data = []
         train_data_list = []
         test_data_list = []
-
-        for index, row in self.train_data.iterrows():
-            
-            # if row['minmumStep_to_win'] == 1:
-            #     continue
-            # 提取state_1到state_24并组合成字符串
+        train_data = pd.read_csv('./data/cube_train.csv')
+        # self.val_data = pd.read_csv('./data/cube_test.csv')
+        test_data = pd.read_csv('./data/cube_test.csv')
+        train_data['init_state'] = train_data.apply(lambda row: ' '.join(map(str, row[['state_{}'.format(i) for i in range(1, 25)]])), axis=1)
+        test_data['init_state'] = test_data.apply(lambda row: ' '.join(map(str, row[['state_{}'.format(i) for i in range(1, 25)]])), axis=1)
+        for index, row in train_data.iterrows():
             INIT = ' '.join(map(str, row[['state_{}'.format(i) for i in range(1, 25)]]))
-            
-            # 提取moves
             PLAN = row['moves']
             train_data_list.append([INIT, PLAN])
         
-        for index, row in self.test_data.iterrows():
-            # if row['minmumStep_to_win'] == 1:
-            #     continue
-            # 提取state_1到state_24并组合成字符串
+        for index, row in test_data.iterrows():
+
             INIT = ' '.join(map(str, row[['state_{}'.format(i) for i in range(1, 25)]]))
-            
-            # 提取moves
             PLAN = row['moves']
             test_data_list.append([INIT, PLAN])
-            # 打印结果
-            # print(f"Row {index}: State String: {state_str}, Moves: {moves}")
 
         self.train_data = PromptDataPipe(train_data_list[:15])
         self.val_data = PromptDataPipe(train_data_list[:15])
-        self.test_data = PromptDataPipe(test_data_list[:15])
+        self.test_data = PromptDataPipe(test_data_list[:])
 
     def train_dataloader(self):
         return DataLoader(self.train_data, shuffle=True, batch_size=1)
