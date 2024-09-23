@@ -42,7 +42,6 @@ class CubeGFNTask(LightningModule):
 
         self.tokenizer = tokenizer
         self.reward = None
-        # self.prompts = json.load(open("data/blocksworld/my_mcts_prompts_update.json", 'r'))
         self.replay_buffer = replay_buffer
         self.train_data = train_data
         self.val_data = val_data
@@ -52,10 +51,6 @@ class CubeGFNTask(LightningModule):
         self.logZ_lr = args.logZ_lr
         self.epsilon = self.args.epsilon_start
         self.get_lr_at_step = lambda step: min(step / 20 * self.lr, self.lr)
-
-        # self.get_reward_temp_at_step = lambda step: self.args.reward_temp_start + (
-        #    self.args.reward_temp_end - self.args.reward_temp_start
-        # ) * min(1, step / self.args.reward_temp_horizon)
 
         self.ignore_token_id = LabelSmoother.ignore_index
 
@@ -89,8 +84,6 @@ class CubeGFNTask(LightningModule):
         INIT, PLAN = problem
         INIT = INIT[0]
         actions = PLAN[0]
-        ########################## Compute the reward for ground-truth trajectory ##########################
-
         LOG_R = []
         LOG_PF = []
         LOG_BF = []
@@ -138,11 +131,8 @@ class CubeGFNTask(LightningModule):
                 else:
                     ll_reward = self.get_ll_reward(actions, states, None)
                     ll_weight = self.args.ll_weight
-                # ll_reward = 3 * torch.pow(ll_reward, 1/3)
-                # ll_reward = torch.tensor([1,0]).to(self.device)
+
                 LOG_R.append(torch.log(reward + ll_weight * ll_reward.sum()))
-                # print("generated reward: \n", reward)
-                # print("generated ll: \n",  ll_reward)
                 generated_text = (actions, states)
                 self.replay_buffer.add(INIT, str(generated_text), sample, torch.log(reward + ll_weight * ll_reward.sum()))
                 log_pf, log_bf = self.forward_prob(actions, states)
@@ -234,8 +224,8 @@ class CubeGFNTask(LightningModule):
     def test_step(self, problem, batch_idx):
         # pass
         if self.args.use_lora:
-            base_to_lora(self.model)    # 确保转换成lora
-        self.model.eval()           # 必须用eval
+            base_to_lora(self.model)   
+        self.model.eval()           
 
         INIT, PLAN = problem
         INIT = INIT[0]
@@ -272,9 +262,7 @@ class CubeGFNTask(LightningModule):
                     success_text.append((INIT, actions_joined))
         with open(f'/home/fangxu/GFlowPlan/success_plans_test/8_step/success_text_{batch_idx}.csv', mode='w', newline='', encoding='utf-8') as file:
             writer = csv.writer(file)
-            # 写入列名
             writer.writerow(['Goal', "Initial State", 'Generated plan'])
-            # 写入数据
             writer.writerows(success_text)
 
         if total_success > 0:
@@ -300,8 +288,8 @@ class CubeGFNTask(LightningModule):
     def validation_step(self, problem, batch_idx):
         # pass
         if self.args.use_lora:
-            base_to_lora(self.model)    # 确保转换成lora
-        self.model.eval()           # 必须用eval
+            base_to_lora(self.model)    
+        self.model.eval()           
 
         INIT, PLAN = problem
         INIT = INIT[0]
@@ -337,9 +325,7 @@ class CubeGFNTask(LightningModule):
                     success_text.append((INIT, actions_joined))
         with open(f'/home/fangxu/GFlowPlan/success_plans_valid/{self.args.step}_step/success_text_{batch_idx}.csv', mode='w', newline='', encoding='utf-8') as file:
             writer = csv.writer(file)
-            # 写入列名
             writer.writerow(['Goal', "Initial State", 'Generated plan'])
-            # 写入数据
             writer.writerows(success_text)
 
         if total_success > 0:
@@ -424,7 +410,6 @@ class CubeGFNTask(LightningModule):
         # turn initial state into prompt form
         initial_state_list = convert_to_int(initial_state.split()) # list of 24 number
         # print(initial_state_list)
-         # string of 24 number: e.g. Upper: xxx, Right: xxx
         last_state = initial_state
         last_state_list = initial_state_list
         actions = []
@@ -469,7 +454,6 @@ class CubeGFNTask(LightningModule):
                         action_logits.append(total_log_prob) 
                         # sample from tempered policy
                     action_logits = torch.stack(action_logits) / pf_temp
-                    # 计算概率分布
                     action_logits = action_logits.to(torch.float32)
 
                     probabilities = torch.exp(action_logits) / torch.sum(torch.exp(action_logits))
