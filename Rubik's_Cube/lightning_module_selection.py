@@ -3,9 +3,10 @@ import numpy as np
 import torch
 from pytorch_lightning import LightningModule
 from transformers.trainer_pt_utils import LabelSmoother
-from util import lora_to_base, base_to_lora
+from util import base_to_lora
 import json
 import os
+import ast
 import csv
 import pickle
 from torch.optim.lr_scheduler import CosineAnnealingLR
@@ -18,30 +19,6 @@ from util import *
 from prompts_cube import cube_instruct
 
 convert_to_int = lambda lst: np.array(list(map(lambda x: int(x), lst)))
-
-
-def add_time(text):
-    def add_step_statement(text, start_text, end_text, insertion):
-    # 找到最后一个 [STATEMENT] 的位置
-        start = text.rfind(start_text)
-        if start == -1:
-            return text  # 如果没有找到 [STATEMENT],直接返回原始文本
-        
-        # 找到最后一个 [PLAN END] 的位置
-        end = text.rfind(end_text)
-        if end == -1:
-            return text  # 如果没有找到 [PLAN END],直接返回原始文本
-        
-        # 在找到的范围内插入新的语句
-        new_text = text[:end] + insertion + text[end:]
-        return new_text
-        
-    insert1 = "STATE <step>: "
-    text = text  # 你的原始文本
-    new_text = add_step_statement(text, "[STATEMENT]", "As initial conditions", insert1)
-    insert2 = "ACTION <step>: "
-    new_text = add_step_statement(new_text, "[PLAN]", "<action>", insert2)
-    return new_text
 
 class CubeGFNTask(LightningModule):
     def __init__(
@@ -85,17 +62,6 @@ class CubeGFNTask(LightningModule):
         self.reward_temperature = self.args.reward_temp_start
         self.pf_temperature = self.args.pf_temp_start
         self.use_buffer_prob = self.args.use_buffer_prob
-        with open(f"/home/fangxu/GFlowPlan/prompts/pool_prompt_v2_step_{args.step}.json") as f:
-            self.init_prompt = json.load(f)
-
-        transition_path = f"/home/fangxu/GFlowPlan/transitions/{args.step}/transition.pkl"
-
-        if os.path.exists(transition_path):
-            with open(transition_path, 'rb') as f:
-                self.transitions = pickle.load(f)
-        else:
-            self.transitions = {}
-        self.ll_reward_dict = {}
 
         self.traj = defaultdict(int)
 
@@ -143,7 +109,10 @@ class CubeGFNTask(LightningModule):
             )
 
             for state, sample in zip(state_list, sample_list):
-                (actions, states) = eval(state)
+                print(state)
+                state_ = eval(state, {'array': np.array})
+                actions, states = state_[0], state_[1]
+                # actions, states = state[0], state[1]
                 log_pf, log_bf = self.forward_prob(actions, states)
                 LOG_PF.append(log_pf)
                 LOG_BF.append(log_bf)
@@ -167,7 +136,7 @@ class CubeGFNTask(LightningModule):
                     ll_reward = torch.tensor(ll_reward).to(self.device)
                     ll_weight = 1
                 else:
-                    ll_reward = self.get_ll_reward(actions, states)
+                    ll_reward = self.get_ll_reward(actions, states, None)
                     ll_weight = self.args.ll_weight
                 # ll_reward = 3 * torch.pow(ll_reward, 1/3)
                 # ll_reward = torch.tensor([1,0]).to(self.device)
@@ -189,7 +158,7 @@ class CubeGFNTask(LightningModule):
                     best_reward = torch.log(reward + ll_weight * ll_reward.sum())
 
                 # conduct local search
-            for _ in range(64):
+            for _ in range(4):
                 _, actions, states, reward, _ = self.local_search(initial_state = INIT,
                     goal = None,
                     max_steps = self.args.step,
@@ -212,8 +181,6 @@ class CubeGFNTask(LightningModule):
 
                 if log_reward > best_reward:
                     LOG_R.append(torch.log(reward + ll_weight * ll_reward.sum()))
-                    # print("generated reward: \n", reward)
-                    # print("generated ll: \n",  ll_reward)
                     generated_text = (actions, states)
                     self.replay_buffer.add(INIT, str(generated_text), sample, torch.log(reward + ll_weight * ll_reward.sum()))
                     log_pf, log_bf = self.forward_prob(actions, states)
@@ -294,7 +261,7 @@ class CubeGFNTask(LightningModule):
                 mode="test"
             )
 
-            last_state = states[-1].split()
+            last_state = states[-1]
             
             if isSolved(last_state):
                 total_success += 1
@@ -360,7 +327,7 @@ class CubeGFNTask(LightningModule):
                 mode="test"
             )
 
-            last_state = states[-1].split()
+            last_state = states[-1]
             if isSolved(last_state):
                 total_success += 1
                 
@@ -547,7 +514,7 @@ class CubeGFNTask(LightningModule):
         """
         return: trajs, probability of each action in the trajs, log rewards of the trajs, log rewards of (state, action)
         """
-        K = self.args.step // 2
+        K = len(plan) // 2
         states = []
         actions = []
         if self.args.use_lora:
@@ -653,7 +620,7 @@ class CubeGFNTask(LightningModule):
             _, depth_pre = solveCube(state_pre)
             _, depth_post = solveCube(state_post)
 
-            intuition = torch.exp(depth_pre - depth_post)
+            intuition = torch.exp(torch.tensor([depth_pre - depth_post]))
             reward.append(intuition)
 
         return torch.tensor(reward).to(self.device)
