@@ -733,7 +733,12 @@ class ARCGFNTask(LightningModule):
                 else:
                     
                     current_state_text = construct_prompt(current_state)
-                    inputs = prompt.replace("<init_state>", str(current_state_text)).strip()
+                    # action list:
+                    # action_names = [str(act) for act in enumerate(allowed_actions)]
+                    action_name_txt = "\n".join(f"{i + 1}. {str(act)}" for i, act in enumerate(allowed_actions))
+
+
+                    inputs = prompt.replace("<init_state>", str(current_state_text)).replace("<python_function>", action_name_txt).strip()
                     input_ids = self.tokenizer.encode(inputs.strip() + "\n", add_special_tokens=False, return_tensors="pt").to(self.device)
                     prefix_output = self.model(input_ids[:, :-1], use_cache=True)
                     prefix_past = prefix_output.past_key_values
@@ -948,7 +953,7 @@ class ARCGFNTask(LightningModule):
             #     # tryOperations(t, newCandidate, cTask, b2c)
             #     break
             if success:
-                test_success = eval_output(actions, last_state.originalT)
+                test_success = eval_output(actions, initial_state[0])
                 if test_success:
                     r1 = 100
                     r1 = torch.tensor(r1).to(self.device)
@@ -957,7 +962,7 @@ class ARCGFNTask(LightningModule):
        
        
         if success:
-            test_success = eval_output(actions, last_state.originalT)
+            test_success = eval_output(actions, initial_state[0])
             if test_success:
                 r1 = 100
             else:
@@ -1177,73 +1182,3 @@ class ARCGFNTask(LightningModule):
             reward.append(intuition)
 
         return torch.tensor(reward).to(self.device)
-
-    # def get_ll_reward(self, actions, states, goal):
-
-    #     reward = []
-
-    #     prompt = sample_prompt(self.init_prompt, shuffle_prompt=False, num_shot=4)
-    #     for step_idx, (state, action) in enumerate(zip(states, actions)):
-    #         action = str(action)
-    #         if isinstance(state, np.ndarray):
-    #             # Convert the numpy array to a list
-    #             state = state.tolist()
-    #         # Convert the state to a string
-    #         state = str(state)
-    #         icl_template = prompt["icl_list"][step_idx // 2]
-    #         if step_idx == 0:
-    #             previous_action = ""
-    #             current_state = state
-    #         else:
-    #             previous_action = str(actions[step_idx - 1]) + "\n"
-    #             if isinstance(states[step_idx - 1], np.ndarray):
-    #                 states[step_idx - 1] = states[step_idx - 1].tolist()
-    #             current_state = str(states[step_idx - 1])
-    #         inputs = (
-    #             icl_template.replace("<init_state>", current_state.lstrip())
-    #             .replace("<goals>", goal)
-    #             .replace("<action>", previous_action.lstrip())
-    #         )
-
-    #         intuition = self.get_likelihood(inputs, [inputs + action.lstrip()])[0]
-    #         self.ll_reward_dict[(step_idx, state, action, goal)] = intuition
-    #         reward.append(intuition)
-
-    #     return torch.tensor(reward).to(self.device)
-
-    # def get_likelihood(
-    #     self,
-    #     prefix: str,
-    #     contents: list[str],
-    # ):
-    #     bsz = len(contents)
-    #     prefix_tokens = self.world_tokenizer.encode(prefix, add_special_tokens=True)
-    #     prompts_tokens = [
-    #         self.world_tokenizer.encode(x, add_special_tokens=True) for x in contents
-    #     ]
-
-    #     for prompt_tokens in prompts_tokens:
-    #         assert prompt_tokens[: len(prefix_tokens)] == prefix_tokens
-
-    #     max_prompt_size = max([len(t) for t in prompts_tokens])
-    #     total_len = max_prompt_size
-    #     tokens = (
-    #         torch.full((bsz, total_len), self.world_tokenizer.pad_token_id)
-    #         .cuda()
-    #         .long()
-    #     )
-
-    #     for k, t in enumerate(prompts_tokens):
-    #         tokens[k, : len(t)] = torch.tensor(t)[:2048].long()
-
-    #     with torch.no_grad():
-    #         outputs = self.model(tokens)
-    #         logits = outputs.logits
-    #     acc_probs = torch.zeros(bsz).cuda()
-    #     for i in range(len(prefix_tokens), max_prompt_size):
-    #         probs = torch.softmax(logits[:, i - 1, :], dim=-1)
-    #         for j in range(bsz):
-    #             if tokens[j, i] != self.world_tokenizer.pad_token_id:
-    #                 acc_probs[j] += torch.log(probs[j, tokens[j, i]])
-
-    #     return acc_probs
