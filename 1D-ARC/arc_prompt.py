@@ -1,13 +1,17 @@
-arc_instruct = '''You are given a series of inputs and output pairs. 
-The values from 'a' to 'j' represent different colors. '.' is a blank cell.
-For example, [['.','a','.'],['.','.','b']] represents a 2 row x 3 col grid with color a at position (1,0) and color b at position (2,1).
-Coordinates are 2D positions (row, col), row representing row number, col representing col number, with zero-indexing.
-Input/output pairs may not reflect all possibilities, you are to infer the simplest possible relation.
-You need to reasoning a sequence of Python functions to transform the input grid to the output grid. Now strictly follow the above process to form Python function.
+arc_instruct = '''You are provided with a series of input-output pairs, where each value from 'a' to 'j' represents a different color, and '.' denotes a blank cell. For example, [['.','a','.'],['.','.','b']] represents a grid with 2 rows and 3 columns, where color 'a' is at position (1,0) and color 'b' is at position (2,1). 
+
+Coordinates are expressed in 2D positions (row, col), with 'row' indicating the row number and 'col' indicating the column number, both using zero-based indexing. The input-output pairs may not cover all possibilities, so you should infer the simplest possible relationship between them.
+
+Your task is to reason through a sequence of Python functions that can transform the input grid into the output grid. Please strictly follow this process to form the appropriate Python function.
+
 [STATEMENT]
-You have the input-output pairs as follows:
+You have the following input-output pairs:
 [Initial Grid State]:
 <init_state>
-[Step 1]
-[Program]
+
+Based on the provided list of Python functions, select the appropriate function to achieve the transformation from the input to the output:
+
+<python_function>
+
+Now, please choose one function from the above list:
 '''
