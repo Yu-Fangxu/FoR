@@ -33,7 +33,7 @@ def options():
     parser.add_argument("--use-lora", type=bool, default=True)
     parser.add_argument("--accumulate_grad_batches", type=int, default=4)
     parser.add_argument("--buffer_size", type=int, default=50)
-    parser.add_argument("--use-buffer-prob", type=float, default=0.5)
+    parser.add_argument("--use-buffer-prob", type=float, default=0.0)
     parser.add_argument("--n_samples", type=int, default=4)
     parser.add_argument("--ll-weight", type=float, default=1.0)
     parser.add_argument("--task", type=str, default='arc',

@@ -1,7 +1,7 @@
 step=$1
 mkdir -p ./logs/step_${step} && \
 
-CUDA_VISIBLE_DEVICES=5 python main.py \
+CUDA_VISIBLE_DEVICES=0 python main.py \
     --step 2 \
     --n_samples 10 \
     --epochs 1 \

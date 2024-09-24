@@ -3,36 +3,28 @@ import numpy as np
 import torch
 from pytorch_lightning import LightningModule
 from transformers.trainer_pt_utils import LabelSmoother
-from util import base_to_lora
-import base64
-import pickle
+from util import base_to_lora, tb_loss
 
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.distributions import Categorical
 
-from Task import *
-from Utils import getPossibleOperations
+import Task
+from util_trans import *
 import Utils
 from utils_arc import *
 from arc_prompt import arc_instruct
-from typing import NamedTuple, Callable, Any
 # Generate a map of all callable functions in the Utils module
 
 func_map = {func_name: getattr(Utils, func_name) for func_name in dir(Utils) if callable(getattr(Utils, func_name))}
 ast = lambda g: tuple(tuple(r) for r in g)
 
-ARCAction = Callable[[Any], Any]
+def convert_tensors_to_numbers(data):
+    for split in ['train', 'test']:
+        for entry in data[split]:
+            entry['input'] = [[t.item() for t in tensor_list] for tensor_list in entry['input']]
+            entry['output'] = [[t.item() for t in tensor_list] for tensor_list in entry['output']]
+    return data
 
-class ARCState(NamedTuple):
-    """The state of the Blocksworld.
-    
-    See the docstring of BlocksWorldModel for more details.
-    """
-    step_idx : int
-    task: Task
-    originalT: Task
-    candidate: Candidate
-    ctask: Task
 
 def is_terminal(state: ARCState) -> bool:
     if state.candidate.score == 0:
@@ -40,7 +32,7 @@ def is_terminal(state: ARCState) -> bool:
     else:
         return False
 
-def step(state: ARCState, action: ARCAction):
+def update_state(state: ARCState, action: ARCAction):
     startOps = ("switchColors", "cropShape", "cropAllBackground", "minimize", \
                 "maxColorFromCell", "deleteShapes", "replicateShapes","colorByPixels", \
                 "paintGridLikeBackground") # applyEvolve?
@@ -74,6 +66,17 @@ def step(state: ARCState, action: ARCAction):
                                                 np.array(cTask["train"][s]["input"])) for s in range(t.nTrain)])
     step_idx = state.step_idx
     newCandidate = Candidate(c.ops+[action], c.tasks + [copy.deepcopy(cTask)], cScore, predictions=newPredictions)
+
+    # if firstIt and str(action)[28:60].startswith(startOps):
+    #     if all([np.array_equal(np.array(cTask["train"][s]["input"]), t.trainSamples[s].inMatrix.m) for s in range(t.nTrain)]):
+    #     continue
+    #     newCandidate.generateTask()
+    #     tryOperations(t, newCandidate, cTask, b2c)
+    # elif str(action)[28:60].startswith(repeatIfPerfect) and c.score - changedPixels == cScore and changedPixels != 0:
+    #     newCandidate.generateTask()
+    #     tryOperations(t, newCandidate, cTask, b2c)
+
+
     newCandidate.generateTask()
     state = ARCState(step_idx=step_idx+1,  task=t, originalT=state.originalT, candidate=newCandidate, ctask=cTask)
     
@@ -95,7 +98,7 @@ def init_state(example) -> ARCState:
 
     if taskNeedsRecoloring:
         task, trainRels, trainInvRels, testRels, testInvRels = orderTaskColors(originalT)
-        t = Task(task, taskId, submission=False)
+        t = Task.Task(task, taskId, submission=False)
     else:
         t = originalT
     cTask = copy.deepcopy(task)
@@ -106,19 +109,19 @@ def init_state(example) -> ARCState:
         taskNeedsCropping = False
     if taskNeedsCropping:
         cropPositions, backgrounds = cropTask(t, cTask)
-        t2 = Task(cTask, taskId, submission=False, backgrounds=backgrounds)
+        t2 = Task.Task(cTask, taskId, submission=False, backgrounds=backgrounds)
     elif t.hasUnchangedGrid:
         if t.gridCellsHaveOneColor:
             ignoreGrid(t, cTask) # This modifies cTask, ignoring the grid
-            t2 = Task(cTask, taskId, submission=False)
+            t2 = Task.Task(cTask, taskId, submission=False)
         elif t.outGridCellsHaveOneColor:
             ignoreGrid(t, cTask, inMatrix=False)
-            t2 = Task(cTask, taskId, submission=False)
+            t2 = Task.Task(cTask, taskId, submission=False)
         else:
             t2 = t
     elif t.hasUnchangedAsymmetricGrid and t.assymmetricGridCellsHaveOneColor:
         ignoreAsymmetricGrid(t, cTask)
-        t2 = Task(cTask, taskId, submission=False)
+        t2 = Task.Task(cTask, taskId, submission=False)
     #if t.hasUnchangedGrid:
     #    ignoreGeneralGrid(t, cTask)
     #    t2 = Task(cTask, taskId, submission=False)
@@ -136,7 +139,7 @@ def init_state(example) -> ARCState:
             hasRotated, rotateParams = rotateHVTask(t2, cTask)
         if hasRotated!=False:
             cTask = hasRotated.copy()
-            t2 = Task(cTask, taskId, submission=False)
+            t2 = Task.Task(cTask, taskId, submission=False)
 
     cScore = sum([Utils.incorrectPixels(np.array(cTask["train"][s]["input"]), \
                                         t2.trainSamples[s].outMatrix.m) for s in range(t.nTrain)])
@@ -152,19 +155,8 @@ def init_state(example) -> ARCState:
     
     return ARCState(step_idx=0, task=t2, originalT=originalT, candidate=c, ctask=cTask)
 
-class ARCState(NamedTuple):
-    """The state of the Blocksworld.
-    
-    See the docstring of BlocksWorldModel for more details.
-    """
-    step_idx : int
-    task: Task
-    originalT: Task
-    candidate: Candidate
-    ctask: Task
-
 def different_views(task):
-    object_view = True # total 16 possibilities
+    object_view = False # total 16 possibilities
     if object_view:
         # Toggle on or off - 2 possibilities each = total 4 possibilities
         diag = False
@@ -178,7 +170,7 @@ def different_views(task):
         # if context length allows (We want this to be true as much as possible)
         more_info = True
 
-    pixel_view = True # total 1 possibility
+    pixel_view = False # total 1 possibility
 
     ## Other parameters
     hide_grid = False # hides original input grid, only set to True if there are not enough tokens
@@ -233,20 +225,23 @@ def different_views(task):
             difference_view = True
         else:
             difference_view = False
-
+        difference_view = False
         if difference_view: each['input_output_difference'] = get_difference_coords(each['input'], each['output'])
-
+    
     return task
 
 def eval_output(program, example):
         # test_case = example['test']
-    test_case = [s.inMatrix for s in example[0].testSamples]
-    gt_case = [s.outMatrix.m for s in example[0].testSamples]
+    test_case = [s.inMatrix for s in example.testSamples]
+    gt_case = [s.outMatrix.m for s in example.testSamples]
     for input, output in zip(test_case, gt_case):
         # print("case")
         for func in program:
             # print(func)
-            input = func(input)
+            try:
+                input = func(input)
+            except Exception as e:
+                return 0
         input = np.array(input)
         if np.array_equal(input, output) == False:
             return 0
@@ -266,7 +261,7 @@ def construct_prompt(example):
         training_data.append({"input": input, "output": output})
 
     prompt = different_views(training_data)
-    return prompt
+    return str(prompt).replace(', ',',').replace(' ','')
 
 class ARCGFNTask(LightningModule):
     def __init__(
@@ -310,14 +305,18 @@ class ARCGFNTask(LightningModule):
         self.pf_temperature = self.args.pf_temp_start
         self.use_buffer_prob = self.args.use_buffer_prob
 
+        
     def forward(self, problem, pf_temp):
         # originalT, task = problem
         # goal: success on test
         # state: 
-        example = eval(problem[0])
-        task = eval(task[0])
+        grids, taskId = problem
+        
+        # grids = convert_tensors_to_numbers(grids)
+        
+        originalT = Task.Task(grids, taskId, submission=False)
         (generated_text, actions, states, reward, sample) = self.generate_trajectories(
-            initial_state=example,
+            initial_state=[originalT, grids],
             goal=None,
             max_steps=self.args.step,
             eos_token_id=self.tokenizer.encode("\n", add_special_tokens=False)[0],
@@ -326,11 +325,14 @@ class ARCGFNTask(LightningModule):
         return generated_text, actions, states, sample, reward
 
     def training_step(self, problem, batch_idx):
-        originalT, task = problem
+        grids, taskId = problem
+        grids = convert_tensors_to_numbers(grids)
+        
+        originalT = Task.Task(grids, taskId, submission=False)
         # goal: success on test
         # state: 
-        originalT = eval(originalT[0])
-        task = eval(task[0])
+        # originalT = eval(originalT[0])
+        # task = eval(task[0])
         ########################## Compute the reward for ground-truth trajectory ##########################
 
         LOG_R = []
@@ -340,73 +342,15 @@ class ARCGFNTask(LightningModule):
 
         if (
             random.random() < self.use_buffer_prob
-            and self.replay_buffer.sample(self.n_samples, str(originalT))[0] is not None
+            and self.replay_buffer.sample(self.n_samples, str(grids))[0] is not None
         ):
             # Using a sample from the reward buffer
             (log_reward_list, state_list, sample_list) = self.replay_buffer.sample(
-                self.n_samples, str(originalT)
+                self.n_samples, str(grids)
             )
             
             for state, sample in zip(state_list, sample_list):
-                # print("statejalend", state)
-                # (actions, states) = eval(state)
                 (actions, states) = eval(state)
-                log_pf, log_bf = self.forward_prob(actions, states)
-                LOG_PF.append(log_pf)
-                LOG_BF.append(log_bf)
-                # # Extract actions and states
-                # actions = parsed_generated_text["actions"]
-                # states = parsed_generated_text["states"]
-
-                # print(actions)
-                # print(states)
-                # print("actions_jalend",actions)
-                # actions = state["actions"]
-                # states = state["states"]
-                # # Define a regex pattern to match the function name and arguments
-                # pattern = r'functools\.partial\(<function (\w+) .*?, (.*?)\)'
-
-                # # Find all matches
-                # matches = re.findall(pattern, actions)
-
-                # # List to hold the parsed functools.partial objects
-                # actions_list = []
-
-                # for match in matches:
-                #     func_name = match[0]
-                #     args_str = match[1]
-
-                #     # Parse the arguments
-                #     args = {}
-                #     for arg in args_str.split(', '):
-                #         key, value = arg.split('=')
-                #         # Convert to the appropriate type
-                #         if value in ['True', 'False']:  # Handle booleans
-                #             value = value == 'True'
-                #         elif value.startswith("'") and value.endswith("'"):  # Handle strings
-                #             value = value.strip("'")
-                #         elif '.' in value:  # Handle floats
-                #             value = float(value)
-                #         else:  # Handle integers
-                #             try:
-                #                 value = int(value)
-                #             except ValueError:
-                #                 # In case value can't be converted to int (e.g., invalid literal like 'True')
-                #                 raise ValueError(f"Unexpected value: {value} for argument {key}")
-                        
-                #     # Add the parsed argument to the args dictionary
-                #     args[key] = value
-
-                #     # Get the actual function from the Utils module dynamically using getattr
-                #     func = getattr(Utils, func_name)
-
-                #     # Create functools.partial object and append it to the list
-                #     partial_func = functools.partial(func, **args)
-                #     actions_list.append(partial_func)
-
-                # Print the result
-                # print("ACTIONS_LIST",actions_list)
-                    
                 log_pf, log_bf = self.forward_prob(actions, states)
                 LOG_PF.append(log_pf)
                 LOG_BF.append(log_bf)
@@ -425,7 +369,7 @@ class ARCGFNTask(LightningModule):
                 generated_text, actions, states, sample, reward = self.forward(
                     problem, pf_temp
                 )
-
+                
                 if self.args.ll_weight == 0:
                     ll_reward = [1 for _ in range(self.args.step)]
                     ll_reward = torch.tensor(ll_reward).to(self.device)
@@ -435,15 +379,15 @@ class ARCGFNTask(LightningModule):
                     ll_weight = self.args.ll_weight
 
                 LOG_R.append(torch.log(reward + ll_weight * ll_reward.sum()))
-                print(f"three losses, {reward}, {ll_weight}, {ll_reward.sum()}")
+                # print(f"three losses, {reward}, {ll_weight}, {ll_reward.sum()}")
                 generated_text = (actions, states)
                 # pickled_data = p(ckle.dumps(generated_text)
                 # encoded_data = base64.b64encode(pickled_data).decode('utf-8')  # Convert to Base64 string
 
                 # generated_text_str = json.dumps(generated_text, cls=CustomEncoder)
                 self.replay_buffer.add(
-                    INIT,
-                    encoded_data,
+                    str(grids),
+                    str(generated_text),
                     sample,
                     torch.log(reward + ll_weight * ll_reward.sum()),
                 )
@@ -451,20 +395,17 @@ class ARCGFNTask(LightningModule):
                 LOG_PF.append(log_pf)
                 LOG_BF.append(log_bf)
 
-                actions_joined = "\n".join(str(actions))
-                self.traj[actions_joined] += 1
-
                 if torch.log(reward + ll_weight * ll_reward.sum()) > best_reward:
                     best_actions = actions
                     best_states = states
                     best_reward = torch.log(reward + ll_weight * ll_reward.sum())
-                print("beststates", best_states)
+                # print("beststates", best_states)
                 # conduct local search
                 # reduce to 8 or 4
             for _ in range(4):
                 _, actions, states, reward, _ = self.local_search(
-                    initial_state=f"{INIT}",
-                    goal=f"{GOAL}",
+                    initial_state=[originalT, grids],
+                    goal=None,
                     max_steps=self.args.step,
                     plan=best_actions,
                     states=best_states,
@@ -479,7 +420,7 @@ class ARCGFNTask(LightningModule):
                     ll_reward = torch.tensor(ll_reward).to(self.device)
                     ll_weight = 1
                 else:
-                    ll_reward = self.get_ll_reward(actions, states, f"{GOAL}")
+                    ll_reward = self.get_ll_reward(actions, states, None)
                     ll_reward = -1 / ll_reward
                     ll_weight = self.args.ll_weight
 
@@ -489,13 +430,13 @@ class ARCGFNTask(LightningModule):
 
                 if log_reward > best_reward:
                     LOG_R.append(torch.log(reward + ll_weight * ll_reward.sum()))
-                    generated_text = {"actions": actions, "states": states}
-                    pickled_data = pickle.dumps(generated_text)
-                    encoded_data = base64.b64encode(pickled_data).decode('utf-8') 
+                    generated_text = (actions, states)
+                    # pickled_data = pickle.dumps(generated_text)
+                    # encoded_data = base64.b64encode(pickled_data).decode('utf-8') 
                     # prob of using replay buffer to 0, main training framework to run correctly.
                     self.replay_buffer.add(
-                        GOAL + INIT,
-                        encoded_data,
+                        str(grids),
+                        str(generated_text),
                         sample,
                         torch.log(reward + ll_weight * ll_reward.sum()),
                     )
@@ -550,9 +491,10 @@ class ARCGFNTask(LightningModule):
             base_to_lora(self.model)  # 确保转换成lora
         self.model.eval()  # 必须用eval
 
-        INIT, GOAL, PLAN = problem
-        GOAL = GOAL[0]
-        INIT = INIT[0]
+        grids, taskId = problem
+        grids = convert_tensors_to_numbers(grids)
+        
+        originalT = Task.Task(grids, taskId, submission=False)
         total_success = 0
         total_solution = 0
         success_text = []
@@ -560,8 +502,8 @@ class ARCGFNTask(LightningModule):
         for _ in range(40):
             (generated_text, actions, states, reward, sample) = (
                 self.generate_trajectories(
-                    initial_state=INIT,
-                    goal=GOAL,
+                    initial_state=[originalT, grids],
+                    goal=None,
                     max_steps=self.args.step,
                     eos_token_id=self.tokenizer.encode("\n", add_special_tokens=False)[
                         0
@@ -569,19 +511,23 @@ class ARCGFNTask(LightningModule):
                     mode="test",
                 )
             )
-
-            # input and output grid states[-1] matches the target state
-            goal_statement = f"{GOAL}"
-            print("test_jalend", GOAL, states[-1])
-            if(GOAL == states[-1]):
+            test_success = eval_output(actions, originalT)
+            if test_success:
                 total_success += 1
-                total_solution += 1
+                if grids not in success_text:
+                    total_solution += 1
+                    success_text.append(grids)
+            # input and output grid states[-1] matches the target state
+            # goal_statement = f"{GOAL}"
+            # print("test_jalend", GOAL, states[-1])
+            # if(GOAL == states[-1]):
+            #     total_success += 1
+            #     total_solution += 1
 
         if total_success > 0:
             success = 1
         else:
             success = 0
-        print("success_jalend",success)
         print(total_success)
 
         self.log(
@@ -605,9 +551,10 @@ class ARCGFNTask(LightningModule):
             base_to_lora(self.model)  # 确保转换成lora
         self.model.eval()  # 必须用eval
 
-        INIT, GOAL, PLAN = problem
-        GOAL = GOAL[0]
-        INIT = INIT[0]
+        grids, taskId = problem
+        grids = convert_tensors_to_numbers(grids)
+        
+        originalT = Task.Task(grids, taskId, submission=False)
 
         total_success = 0
         total_solution = 0
@@ -617,8 +564,8 @@ class ARCGFNTask(LightningModule):
 
             (generated_text, actions, states, reward, sample) = (
                 self.generate_trajectories(
-                    initial_state=INIT,
-                    goal=GOAL,
+                    initial_state=[originalT, grids],
+                    goal=None,
                     max_steps=self.args.step,
                     eos_token_id=self.tokenizer.encode("\n", add_special_tokens=False)[
                         0
@@ -626,13 +573,19 @@ class ARCGFNTask(LightningModule):
                     mode="test",
                 )
             )
-          # input and output grid states[-1] matches the target state
-            goal_statement = f"{GOAL}"
-            print("validation_jalend", GOAL, states[-1])
-            if(GOAL == states[-1]):
+            test_success = eval_output(actions, originalT)
+            if test_success:
                 total_success += 1
-                total_solution += 1
-
+                if grids not in success_text:
+                    total_solution += 1
+                    success_text.append(grids)
+          # input and output grid states[-1] matches the target state
+            # goal_statement = f"{GOAL}"
+            # print("validation_jalend", GOAL, states[-1])
+            # if(GOAL == states[-1]):
+            #     total_success += 1
+            #     total_solution += 1
+            
         if total_success > 0:
             success = 1
         else:
@@ -730,6 +683,11 @@ class ARCGFNTask(LightningModule):
         """
         return: trajs, probability of each action in the trajs, log rewards of the trajs, log rewards of (state, action)
         """
+        startOps = ("switchColors", "cropShape", "cropAllBackground", "minimize", \
+                "maxColorFromCell", "deleteShapes", "replicateShapes","colorByPixels", \
+                "paintGridLikeBackground") # applyEvolve?
+        repeatIfPerfect = ("extendColor", "moveAllShapes")
+        firstIt = True
         if self.args.use_lora:
             base_to_lora(self.model)
         self.model.eval()
@@ -738,21 +696,25 @@ class ARCGFNTask(LightningModule):
         last_state = init_state(last_state)
         actions = []
         states = []
+        
         for step in range(max_steps):
             current_state = last_state
-            possibleOps = getPossibleOperations(current_state.task, current_state.candidate)
+
+            possibleOps = Utils.getPossibleOperations(current_state.task, current_state.candidate)
+            # print(possibleOps)
+            
             filtered_func_list = []
             other_func_list = []
             for func in possibleOps:
-                try:
-                    _, success_proxy = step(current_state, action)
-                    if success_proxy:
-                        filtered_func_list.append(func)
+                # try:
+                _, success_proxy = update_state(current_state, func)
+                if success_proxy:
+                    filtered_func_list.append(func)
 
-                    else:
-                        other_func_list.append(func)
-                except Exception as e:
-                    print(f"Error applying function {func}: {e}")
+                else:
+                    other_func_list.append(func)
+                # except Exception as e:
+                    # print(f"Error applying function {func}: {e}")
             allowed_actions_ = filtered_func_list.copy()
             num_random_from_other = 5  
             if len(other_func_list) > 0:
@@ -761,7 +723,7 @@ class ARCGFNTask(LightningModule):
                     random.sample(other_func_list, num_random_from_other)
                 )
             allowed_actions = allowed_actions_
-
+            # print("len(allowed_actions)", len(allowed_actions))
             if len(allowed_actions_) != 0:
 
                 # epsilon greedy
@@ -769,13 +731,10 @@ class ARCGFNTask(LightningModule):
                     action = random.choice(allowed_actions_)
                     # action = action.lower()
                 else:
+                    
                     current_state_text = construct_prompt(current_state)
                     inputs = prompt.replace("<init_state>", str(current_state_text)).strip()
-                    
-                    input_ids = self.tokenizer.encode(
-                        inputs.lstrip() + "\n", return_tensors="pt"
-                    ).to(self.device)
-
+                    input_ids = self.tokenizer.encode(inputs.strip() + "\n", add_special_tokens=False, return_tensors="pt").to(self.device)
                     prefix_output = self.model(input_ids[:, :-1], use_cache=True)
                     prefix_past = prefix_output.past_key_values
 
@@ -838,36 +797,42 @@ class ARCGFNTask(LightningModule):
             states.append(last_state)
             actions.append(action)
 
-            new_state, success = step(current_state, action)
+            new_state, success = update_state(current_state, action)
+            last_state = new_state
+            # if firstIt and str(action)[28:60].startswith(startOps) :
+            #     if all([np.array_equal(np.array(last_state.cTask["train"][s]["input"]), last_state.task.trainSamples[s].inMatrix.m) for s in range(last_state.task.nTrain)]):
+            #         break
+            #     # newCandidate.generateTask()
+            #     # tryOperations(t, newCandidate, cTask, b2c)
+            # elif str(action)[28:60].startswith(repeatIfPerfect):# and last_state.candidate.score - changedPixels == cScore and changedPixels != 0:
+            #     # newCandidate.generateTask()
+            #     # tryOperations(t, newCandidate, cTask, b2c)
+            #     break
+            
             # Convert new_state from a numpy array to a list if it's a numpy array
 
-            last_state = new_state
+            
 
             # whether reach the goal:
 
             if success:
-                eval_output(actions, last_state)
+                test_success = eval_output(actions, initial_state[0])
+                if test_success:
+                    r1 = 100
+                    r1 = torch.tensor(r1).to(self.device)
+
+                    return None, actions, states, r1, None
+       
+       
+        if success:
+            test_success = eval_output(actions, initial_state[0])
+            if test_success:
                 r1 = 100
             else:
-                r1 = 1  # small number
-
-            r1 = torch.tensor(r1).to(self.device)
-
-            return None, actions, states, r1, None
-
-            # print(new_state)
-        states.append(last_state)
-       
-        goal_state = Matrix(goal['input'])
-        for act in actions:
-            goal_state = act(goal_state)
-        if goal_state == goal['output']:
-                r1 = 100
+                r1 = 1
         else:
-            r1 = 1  # small number
-
+            r1 = 1
         r1 = torch.tensor(r1).to(self.device)
-
         return None, actions, states, r1, None
 
     def local_search(
@@ -893,16 +858,23 @@ class ARCGFNTask(LightningModule):
         last_state = initial_state
         last_state = init_state(last_state)
 
+        startOps = ("switchColors", "cropShape", "cropAllBackground", "minimize", \
+                "maxColorFromCell", "deleteShapes", "replicateShapes","colorByPixels", \
+                "paintGridLikeBackground") # applyEvolve?
+        repeatIfPerfect = ("extendColor", "moveAllShapes")
+        firstIt = True
+        current_state = last_state
         for step in range(max_steps):
 
             # epsilon greedy
             if step < K:
                 action = plan[step]
+                
             else:
                 # change function generate_all_actions
                 current_state = last_state
                 # change function generate_all_actions
-                possibleOps = getPossibleOperations(current_state.task, current_state.candidate)
+                possibleOps = Utils.getPossibleOperations(current_state.task, current_state.candidate)
                 # allowed_actions = generate_all_actions(last_state)
                 # func_list = getPossibleOperations(task, cand)
                 # allowed_actions_ = [
@@ -915,7 +887,7 @@ class ARCGFNTask(LightningModule):
                     try:
                         # Apply the function to the intermediate state
                         # result = func(Matrix(eval(initial_state)))
-                        _, success_proxy = step(current_state, action)
+                        _, success_proxy = update_state(current_state, func)
                         # print(result)
                         # print(target_state)
                         # If the result matches the target state, keep the function
@@ -959,34 +931,40 @@ class ARCGFNTask(LightningModule):
             last_action = action
 
            
-            new_state, success = step(current_state, action)
+            new_state, success = update_state(current_state, action)
             # Convert new_state from a numpy array to a list if it's a numpy array
 
             last_state = new_state
-
+            # states.append(last_state)
+            
             # whether reach the goal:
-
+            # if firstIt and str(action)[28:60].startswith(startOps) :
+            #     if all([np.array_equal(np.array(last_state.cTask["train"][s]["input"]), last_state.task.trainSamples[s].inMatrix.m) for s in range(last_state.task.nTrain)]):
+            #         break
+            #     # newCandidate.generateTask()
+            #     # tryOperations(t, newCandidate, cTask, b2c)
+            # elif str(action)[28:60].startswith(repeatIfPerfect):# and last_state.candidate.score - changedPixels == cScore and changedPixels != 0:
+            #     # newCandidate.generateTask()
+            #     # tryOperations(t, newCandidate, cTask, b2c)
+            #     break
             if success:
-                eval_output(actions, last_state)
+                test_success = eval_output(actions, last_state.originalT)
+                if test_success:
+                    r1 = 100
+                    r1 = torch.tensor(r1).to(self.device)
+
+                    return None, actions, states, r1, None
+       
+       
+        if success:
+            test_success = eval_output(actions, last_state.originalT)
+            if test_success:
                 r1 = 100
             else:
-                r1 = 1  # small number
-
-            r1 = torch.tensor(r1).to(self.device)
-
-            return None, actions, states, r1, None
-        states.append(last_state)
-       
-        goal_state = Matrix(goal['input'])
-        for act in actions:
-            goal_state = act(goal_state)
-        if goal_state == goal['output']:
-                r1 = 100
+                r1 = 10
         else:
-            r1 = 1  # small number
-
+            r1 = 1
         r1 = torch.tensor(r1).to(self.device)
-
         return None, actions, states, r1, None
 
     def forward_prob(self, actions, states):
@@ -998,30 +976,27 @@ class ARCGFNTask(LightningModule):
         initial_state = states[0]
 
         last_state = initial_state
-        last_state = init_state(last_state)
+        # last_state = init_state(last_state)
         log_pf = []
         log_bf = []
-        print("len of actions",len(actions))
+        # print("len of actions",len(actions))
         for step in range(len(actions)):
             current_state = last_state
-            possibleOps = getPossibleOperations(current_state.task, current_state.candidate)
+            possibleOps = Utils.getPossibleOperations(current_state.task, current_state.candidate)
             filtered_func_list = []
             other_func_list = []
             for func in possibleOps:
-                try:
-                    # Apply the function to the intermediate state
-                    # result = func(Matrix(eval(initial_state)))
-                    _, success_proxy = step(current_state, action)
-                    # print(result)
-                    # print(target_state)
-                    # If the result matches the target state, keep the function
-                    if success_proxy:
-                        filtered_func_list.append(func)
-                        # print(f"Function {func} can transform the state successfully")
-                    else:
-                        other_func_list.append(func)
-                except Exception as e:
-                    print(f"Error applying function {func}: {e}")
+                _, success_proxy = update_state(current_state, func)
+                # print(result)
+                # print(target_state)
+                # If the result matches the target state, keep the function
+                if success_proxy:
+                    filtered_func_list.append(func)
+                    # print(f"Function {func} can transform the state successfully")
+                else:
+                    other_func_list.append(func)
+                # except Exception as e:
+                    # print(f"Error applying function {func}: {e}")
             # print("Length of filtered function list,", len(filtered_func_list))
 
             # Choose all functions from filtered_func_list and a few from other_func_list
@@ -1195,68 +1170,80 @@ class ARCGFNTask(LightningModule):
 
         reward = []
 
-        prompt = sample_prompt(self.init_prompt, shuffle_prompt=False, num_shot=4)
-        for step_idx, (state, action) in enumerate(zip(states, actions)):
-            action = str(action)
-            if isinstance(state, np.ndarray):
-                # Convert the numpy array to a list
-                state = state.tolist()
-            # Convert the state to a string
-            state = str(state)
-            icl_template = prompt["icl_list"][step_idx // 2]
-            if step_idx == 0:
-                previous_action = ""
-                current_state = state
-            else:
-                previous_action = str(actions[step_idx - 1]) + "\n"
-                if isinstance(states[step_idx - 1], np.ndarray):
-                    states[step_idx - 1] = states[step_idx - 1].tolist()
-                current_state = str(states[step_idx - 1])
-            inputs = (
-                icl_template.replace("<init_state>", current_state.lstrip())
-                .replace("<goals>", goal)
-                .replace("<action>", previous_action.lstrip())
-            )
-
-            intuition = self.get_likelihood(inputs, [inputs + action.lstrip()])[0]
-            self.ll_reward_dict[(step_idx, state, action, goal)] = intuition
+        for idx in range(len(states)-1):
+            state_pre = states[idx]
+            state_post = states[idx+1]
+            intuition = torch.exp(torch.tensor([state_pre.candidate.score - state_post.candidate.score]))
             reward.append(intuition)
 
         return torch.tensor(reward).to(self.device)
 
-    def get_likelihood(
-        self,
-        prefix: str,
-        contents: list[str],
-    ):
-        bsz = len(contents)
-        prefix_tokens = self.world_tokenizer.encode(prefix, add_special_tokens=True)
-        prompts_tokens = [
-            self.world_tokenizer.encode(x, add_special_tokens=True) for x in contents
-        ]
+    # def get_ll_reward(self, actions, states, goal):
 
-        for prompt_tokens in prompts_tokens:
-            assert prompt_tokens[: len(prefix_tokens)] == prefix_tokens
+    #     reward = []
 
-        max_prompt_size = max([len(t) for t in prompts_tokens])
-        total_len = max_prompt_size
-        tokens = (
-            torch.full((bsz, total_len), self.world_tokenizer.pad_token_id)
-            .cuda()
-            .long()
-        )
+    #     prompt = sample_prompt(self.init_prompt, shuffle_prompt=False, num_shot=4)
+    #     for step_idx, (state, action) in enumerate(zip(states, actions)):
+    #         action = str(action)
+    #         if isinstance(state, np.ndarray):
+    #             # Convert the numpy array to a list
+    #             state = state.tolist()
+    #         # Convert the state to a string
+    #         state = str(state)
+    #         icl_template = prompt["icl_list"][step_idx // 2]
+    #         if step_idx == 0:
+    #             previous_action = ""
+    #             current_state = state
+    #         else:
+    #             previous_action = str(actions[step_idx - 1]) + "\n"
+    #             if isinstance(states[step_idx - 1], np.ndarray):
+    #                 states[step_idx - 1] = states[step_idx - 1].tolist()
+    #             current_state = str(states[step_idx - 1])
+    #         inputs = (
+    #             icl_template.replace("<init_state>", current_state.lstrip())
+    #             .replace("<goals>", goal)
+    #             .replace("<action>", previous_action.lstrip())
+    #         )
 
-        for k, t in enumerate(prompts_tokens):
-            tokens[k, : len(t)] = torch.tensor(t)[:2048].long()
+    #         intuition = self.get_likelihood(inputs, [inputs + action.lstrip()])[0]
+    #         self.ll_reward_dict[(step_idx, state, action, goal)] = intuition
+    #         reward.append(intuition)
 
-        with torch.no_grad():
-            outputs = self.model(tokens)
-            logits = outputs.logits
-        acc_probs = torch.zeros(bsz).cuda()
-        for i in range(len(prefix_tokens), max_prompt_size):
-            probs = torch.softmax(logits[:, i - 1, :], dim=-1)
-            for j in range(bsz):
-                if tokens[j, i] != self.world_tokenizer.pad_token_id:
-                    acc_probs[j] += torch.log(probs[j, tokens[j, i]])
+    #     return torch.tensor(reward).to(self.device)
 
-        return acc_probs
+    # def get_likelihood(
+    #     self,
+    #     prefix: str,
+    #     contents: list[str],
+    # ):
+    #     bsz = len(contents)
+    #     prefix_tokens = self.world_tokenizer.encode(prefix, add_special_tokens=True)
+    #     prompts_tokens = [
+    #         self.world_tokenizer.encode(x, add_special_tokens=True) for x in contents
+    #     ]
+
+    #     for prompt_tokens in prompts_tokens:
+    #         assert prompt_tokens[: len(prefix_tokens)] == prefix_tokens
+
+    #     max_prompt_size = max([len(t) for t in prompts_tokens])
+    #     total_len = max_prompt_size
+    #     tokens = (
+    #         torch.full((bsz, total_len), self.world_tokenizer.pad_token_id)
+    #         .cuda()
+    #         .long()
+    #     )
+
+    #     for k, t in enumerate(prompts_tokens):
+    #         tokens[k, : len(t)] = torch.tensor(t)[:2048].long()
+
+    #     with torch.no_grad():
+    #         outputs = self.model(tokens)
+    #         logits = outputs.logits
+    #     acc_probs = torch.zeros(bsz).cuda()
+    #     for i in range(len(prefix_tokens), max_prompt_size):
+    #         probs = torch.softmax(logits[:, i - 1, :], dim=-1)
+    #         for j in range(bsz):
+    #             if tokens[j, i] != self.world_tokenizer.pad_token_id:
+    #                 acc_probs[j] += torch.log(probs[j, tokens[j, i]])
+
+    #     return acc_probs

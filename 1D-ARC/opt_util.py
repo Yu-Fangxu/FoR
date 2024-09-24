@@ -36,7 +36,7 @@ def load_model(args, device):
             r=16, #Rank
             lora_alpha=32,
             target_modules=[
-                 'q_proj',
+            'q_proj',
             'k_proj',
             'v_proj',
             'dense'

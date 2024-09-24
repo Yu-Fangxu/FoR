@@ -18,8 +18,10 @@ def base_to_lora(model):
     except:
         print("No adapter layers to enable")
     model.train()
-
 def tb_loss(log_pf, log_r, logz, log_bf=None, logpartition=False):
+    print("log_pf: ", log_pf)
+    print("log_r: ", log_r)
+    print("logz: ", logz)
     if logpartition:
         if log_bf != None:
             scores = log_pf - log_r - log_bf
@@ -33,4 +35,3 @@ def tb_loss(log_pf, log_r, logz, log_bf=None, logpartition=False):
         else:
             loss = (log_pf + logz - log_r) ** 2
     return loss.mean()
-

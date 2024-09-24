@@ -1,18 +1,15 @@
 import numpy as np
 import operator
 import copy
-import Models
 import Task
-import torch
-import torch.nn as nn
 from itertools import product, permutations, combinations, combinations_with_replacement
 from functools import partial
-from collections import Counter, defaultdict
+from collections import Counter
 # Copyright (c) 2024 Qualcomm Technologies, Inc.
 # All Rights Reserved.
 
 from importlib import import_module
-from typing import Any, Dict, Iterable, List, Union
+from typing import Any
 
 
 
@@ -5245,64 +5242,64 @@ def countColors(matrix, outBackgroundColor=-1, outShape=None,ignoreBackground=Tr
         m = np.rot90(m)
     return m
 
-def getBestCountShapes(t):
-    bestScore = 1000
-    bestFunction = partial(identityM)
-    if all([len(s.inMatrix.shapes)>15 for s in t.trainSamples]):
-            return bestFunction
-    if t.sameIOShapes:
-        oSh = 'inShape'
-    elif t.sameOutShape:
-        oSh = t.trainSamples[0].outMatrix.shape
-    else:
-        oSh = None
+# def getBestCountShapes(t):
+#     bestScore = 1000
+#     bestFunction = partial(identityM)
+#     if all([len(s.inMatrix.shapes)>15 for s in t.trainSamples]):
+#             return bestFunction
+#     if t.sameIOShapes:
+#         oSh = 'inShape'
+#     elif t.sameOutShape:
+#         oSh = t.trainSamples[0].outMatrix.shape
+#     else:
+#         oSh = None
         
-    for outC in set([None]).union(set.intersection(*t.outColors)):
-        for inC in set([-1]).union(set.intersection(*t.inColors)):
-            for sh in [None] + t.commonInShapes:
-                for lay in ['h','d']:
-                    for skip in [True, False]:
-                        bestFunction, bestScore = updateBestFunction(t, partial(countShapes,color=inC,\
-                                        outShape=oSh, lay=lay, outColor=outC, shape=sh, skip=skip), bestScore, bestFunction)
-    return bestFunction
+#     for outC in set([None]).union(set.intersection(*t.outColors)):
+#         for inC in set([-1]).union(set.intersection(*t.inColors)):
+#             for sh in [None] + t.commonInShapes:
+#                 for lay in ['h','d']:
+#                     for skip in [True, False]:
+#                         bestFunction, bestScore = updateBestFunction(t, partial(countShapes,color=inC,\
+#                                         outShape=oSh, lay=lay, outColor=outC, shape=sh, skip=skip), bestScore, bestFunction)
+#     return bestFunction
 
-def countShapes(matrix, color=-1, shape=None, outColor=None, outShape=None, lay='d', skip=False):
-    if color < 0:
-        shc = [sh for sh in matrix.shapes]
-    else:
-        shc = [sh for sh in matrix.shapes if sh.color == color]
-    if shape != None:
-        shc = [sh for sh in shc if sh == shape]
-    if outShape == None:
-        m = np.full((len(shc),len(shc)), fill_value=matrix.backgroundColor)
-    elif outShape == 'inShape':
-        m = np.full(matrix.shape, fill_value=matrix.backgroundColor)
-    else:
-        m = np.full(outShape, fill_value=matrix.backgroundColor)
-    if lay == 'd':
-        for d in range(min(len(shc), m.shape[0], m.shape[1])):
-            if outColor == None:
-                m[d,d] = shc[d].color
-            else:
-                m[d,d] = outColor
-    elif lay == 'h':
-        shc = [sh.color for sh in shc]
-        if skip:
-            shc = [[c,matrix.backgroundColor] for c in shc]
-            shc = [c for p in shc for c in p]
-        i = 0
-        while i < m.shape[0]:
-            j = 0
-            while j < m.shape[1]:
-                if i*m.shape[1]+j >= len(shc):
-                    break
-                if outColor == None:
-                    m[i,j] = shc[i*m.shape[1]+j]
-                elif shc[i*m.shape[1] + j] != matrix.backgroundColor:
-                    m[i,j] = outColor
-                j += 1           
-            i += 1 
-    return m 
+# def countShapes(matrix, color=-1, shape=None, outColor=None, outShape=None, lay='d', skip=False):
+#     if color < 0:
+#         shc = [sh for sh in matrix.shapes]
+#     else:
+#         shc = [sh for sh in matrix.shapes if sh.color == color]
+#     if shape != None:
+#         shc = [sh for sh in shc if sh == shape]
+#     if outShape == None:
+#         m = np.full((len(shc),len(shc)), fill_value=matrix.backgroundColor)
+#     elif outShape == 'inShape':
+#         m = np.full(matrix.shape, fill_value=matrix.backgroundColor)
+#     else:
+#         m = np.full(outShape, fill_value=matrix.backgroundColor)
+#     if lay == 'd':
+#         for d in range(min(len(shc), m.shape[0], m.shape[1])):
+#             if outColor == None:
+#                 m[d,d] = shc[d].color
+#             else:
+#                 m[d,d] = outColor
+#     elif lay == 'h':
+#         shc = [sh.color for sh in shc]
+#         if skip:
+#             shc = [[c,matrix.backgroundColor] for c in shc]
+#             shc = [c for p in shc for c in p]
+#         i = 0
+#         while i < m.shape[0]:
+#             j = 0
+#             while j < m.shape[1]:
+#                 if i*m.shape[1]+j >= len(shc):
+#                     break
+#                 if outColor == None:
+#                     m[i,j] = shc[i*m.shape[1]+j]
+#                 elif shc[i*m.shape[1] + j] != matrix.backgroundColor:
+#                     m[i,j] = outColor
+#                 j += 1           
+#             i += 1 
+#     return m 
 
 def getBestSymmetrizeAllShapes(t):
     bestScore = 1000
@@ -6824,7 +6821,7 @@ def getPossibleOperations(t, c):
             x.append(partial(arrangeShapes,outDummyMatrix=candTask.trainSamples[0].outMatrix.dummyMatrix,\
                              outDummyColor=candTask.trainSamples[0].outMatrix.backgroundColor))
     x.append(getBestCountColors(candTask))  
-    x.append(getBestCountShapes(candTask))  
+    # x.append(getBestCountShapes(candTask))  
     ###########################################################################
     # sameIOShapes
     if candTask.sameIOShapes:
