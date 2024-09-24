@@ -483,16 +483,17 @@ class CubeGFNTask(LightningModule):
             else:
                 action = random.choice(allowed_actions)
                 states.append(last_state_list)
-
+            states.append(last_state_list)
             actions.append(action)
             new_state_list = doAlgStr(last_state_list, action)
 
             last_state_list = new_state_list
-            states.append(last_state_list)
+            
             if isSolved(last_state_list):
                 r1 = 100
                 r1 = torch.tensor(r1).to(self.device)
                 return None, actions, states, r1, None
+        states.append(last_state_list)
         if isSolved(states[-1]):
             r1 = 100
         else:
@@ -543,11 +544,11 @@ class CubeGFNTask(LightningModule):
                     action = random.choice(allowed_actions)
                 action = action
             actions.append(action)
-        
+            states.append(current_state_list)
             new_state = doAlgStr(current_state_list, action)
 
             last_state = new_state
-            states.append(current_state_list)
+            
 
             if isSolved(last_state):
                 r1 = 100
@@ -555,7 +556,7 @@ class CubeGFNTask(LightningModule):
                 r1 = torch.tensor(r1).to(self.device)
 
                 return None, actions, states, r1, None
-
+        states.append(last_state_list)
         if isSolved(states[-1]):
             r1 = 100
         else:
