@@ -1,17 +1,17 @@
-arc_instruct = '''You are provided with a series of input-output pairs, where each value from 'a' to 'j' represents a different color, and '.' denotes a blank cell. For example, [['.','a','.'],['.','.','b']] represents a grid with 2 rows and 3 columns, where color 'a' is at position (1,0) and color 'b' is at position (2,1). 
+cube_instruct = """You are a virtual expert in solving a 2x2 Pocket Cube. Your task is to restore a scrambled 2x2 Rubik's Cube to its original state. All the given problems can be solved in 1 to 4 moves. You cannot exceed more than 11 moves. Provide the sequence of moves required for the restoration. Please follow the instructions and rules below to complete the solving:
+1. A 2x2 Pocket Cube has six faces, namely: [Upper, Front, Bottom, Left, Right, Back] Each consisting of a 2x2 grid of squares, with each square having its own color.
+2. Colors in the Cube are represented in numbers: [0, 1, 2, 3, 4, 5]
+3. You must make move to the Cube to achieve a Restored State. Note that we just need each face to have same numbers, no matter which face has which color.
+4. A restoration of a Pocket Cube is to move squares in each face to have same numbers.
+5. You are only allowed to use following moves [U, U', U2, R, R', R2, F, F', F2]. 
 
-Coordinates are expressed in 2D positions (row, col), with 'row' indicating the row number and 'col' indicating the column number, both using zero-based indexing. The input-output pairs may not cover all possibilities, so you should infer the simplest possible relationship between them.
-
-Your task is to reason through a sequence of Python functions that can transform the input grid into the output grid. Please strictly follow this process to form the appropriate Python function.
+Now strictly follow the above process to form Restoration Moves.
 
 [STATEMENT]
-You have the following input-output pairs:
-[Initial Grid State]:
-<init_state>
-
-Based on the provided list of Python functions, select the appropriate function to achieve the transformation from the input to the output:
-
-<python_function>
-
-Now, please choose one function from the above list:
-'''
+As initial state of the cube, I have that
+[Initial Cube State]:
+{init_state}
+[Process]:
+[Step 1]
+[Move]
+"""
