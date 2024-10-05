@@ -1,6 +1,6 @@
-# Flow of Reasoning: Efficient Training of LLM Policy with Divergent Thinking
+# Flow of Reasoning:Training LLMs for Divergent Problem Solving with Minimal Examples
 
-Official code for "[Flow of Reasoning: Efficient Training of LLM Policy with Divergent Thinking](https://arxiv.org/abs/2406.05673)" Also check our [[Project Page](https://yu-fangxu.github.io/FoR.github.io/)]
+Official code for "[Flow of Reasoning:Training LLMs for Divergent Problem Solving with Minimal Examples](https://arxiv.org/abs/2406.05673)" Also check our [[Project Page](https://yu-fangxu.github.io/FoR.github.io/)]
 
 ![plot](./images/task.png)
 
