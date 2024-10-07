@@ -1,4 +1,4 @@
-# Flow of Reasoning:Training LLMs for Divergent Problem Solving with Minimal Examples
+# Flow of Reasoning: Training LLMs for Divergent Problem Solving with Minimal Examples
 
 Official code for "[Flow of Reasoning:Training LLMs for Divergent Problem Solving with Minimal Examples](https://arxiv.org/abs/2406.05673)" Also check our [[Project Page](https://yu-fangxu.github.io/FoR.github.io/)]
 
