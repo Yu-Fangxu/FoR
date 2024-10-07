@@ -27,9 +27,9 @@ We recommend conda for setting up a reproducible experiment environment. We incl
 bash install.sh
 ```
 
-**3) Choose 1 of 3 tasks to run**
+**3) Choose 1 of 5 tasks to run**
 ```
-cd BlocksWorld|Game24|prontoqa
+cd BlocksWorld|Game24|prontoqa|1D-ARC|Rubik's_Cube
 ```
 
 Check more detailed instructions in each branch.
