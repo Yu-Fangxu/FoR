@@ -4,7 +4,7 @@ from torchdata.datapipes.map import MapDataPipe
 from pytorch_lightning import LightningDataModule
 import warnings
 import sys
-from bw_utils import *
+import re
 sys.path.append("gpt-plan-benchmark/gpt_plan_test")
 warnings.filterwarnings("ignore", ".*does not have many workers.*")
 import json
