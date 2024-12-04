@@ -29,7 +29,7 @@ bash install.sh
 
 **3) Choose 1 of 5 tasks to run**
 ```
-cd BlocksWorld|Game24|prontoqa|1D-ARC|Rubik's_Cube
+cd BlocksWorld|Game24|prontoqa|1D-ARC|Rubik's_Cube|GSM8K
 ```
 
 Check more detailed instructions in each branch.
