@@ -484,7 +484,7 @@ class GSM8KGFNTask(LightningModule):
         if depth == self.args.step:
             agent_output = [overall_question_output]
         else:
-            agent_output = self.query_LM(self.model, self.world_tokenizer, prompt=(agent_input, f"{subquestion_prefix}"), do_sample=True, num_return_sequences=4, eos_token_id=self.tokenizer.encode('\n', add_special_tokens=False)[0],
+            agent_output = self.query_LM(self.model, self.world_tokenizer, prompt=(agent_input, f"{subquestion_prefix}"), do_sample=True, num_return_sequences=16, eos_token_id=self.tokenizer.encode('\n', add_special_tokens=False)[0],
                                          temperature=0.5)
         questions = [o.split(subquestion_prefix)[-1] for o in agent_output]
         
