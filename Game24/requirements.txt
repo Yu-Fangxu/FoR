@@ -124,7 +124,7 @@ sympy==1.12
 tarski==0.8.2
 termcolor==2.4.0
 tokenizers==0.15.2
-tornado==6.4
+tornado==6.4.1
 tqdm==4.66.2
 traitlets==5.14.1
 transformers==4.38.2
