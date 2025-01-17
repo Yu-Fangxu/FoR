@@ -9,22 +9,25 @@ from bw_utils import *
 import yaml
 import json
 import bitsandbytes as bnb
+from evaluate_blocksworld import Evaluate_BlocksWorld
+# from deepspeed.ops.adam import DeepSpeedCPUAdam, FusedAdam
+import torch.nn.functional as F
 import csv
 import re
 import pickle
-import os
-from transformers import AutoTokenizer, BitsAndBytesConfig
+from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.distributions import Categorical
+import concurrent.futures
+import time
 from collections import defaultdict
 sys.path.append("gpt-plan-benchmark/gpt_plan_test")
 
 def add_time(text):
     def add_step_statement(text, start_text, end_text, insertion):
-
         start = text.rfind(start_text)
         if start == -1:
-            return text 
+            return text  
         end = text.rfind(end_text)
         if end == -1:
             return text  
@@ -32,7 +35,7 @@ def add_time(text):
         return new_text
         
     insert1 = "STATE <step>: "
-    text = text  
+    text = text  # 你的原始文本
     new_text = add_step_statement(text, "[STATEMENT]", "As initial conditions", insert1)
     insert2 = "ACTION <step>: "
     new_text = add_step_statement(new_text, "[PLAN]", "<action>", insert2)
@@ -74,12 +77,13 @@ class BlocksWorldGFNTask(LightningModule):
         self.epsilon = self.args.epsilon_start
         self.get_lr_at_step = lambda step: min(step / 20 * self.lr, self.lr)
 
+
         self.ignore_token_id = LabelSmoother.ignore_index
 
         self.reward_temperature = self.args.reward_temp_start
         self.pf_temperature = self.args.pf_temp_start
         self.use_buffer_prob = self.args.use_buffer_prob
-        with open(f"./prompts/pool_prompt_v2_step_{args.step}.json") as f:
+        with open(f"/home/fangxu/GFlowPlan/prompts/pool_prompt_v2_step_{args.step}.json") as f:
             self.init_prompt = json.load(f)
         
         bnb_config = BitsAndBytesConfig(
@@ -90,10 +94,11 @@ class BlocksWorldGFNTask(LightningModule):
             llm_int8_threshold=6.0,
             bnb_4bit_use_double_quant=True,
         )
+        
         self.world_tokenizer = AutoTokenizer.from_pretrained(args.world_model, add_bos_token=False, padding_side='left')
         self.world_tokenizer.pad_token = self.world_tokenizer.eos_token
 
-        transition_path = f"/transitions/{args.step}/transition.pkl"
+        transition_path = f"/home/fangxu/GFlowPlan/transitions/{args.step}/transition.pkl"
 
         if os.path.exists(transition_path):
             with open(transition_path, 'rb') as f:
@@ -127,8 +132,11 @@ class BlocksWorldGFNTask(LightningModule):
 
     def training_step(self, problem, batch_idx):
         INIT, GOAL, PLAN = problem
+        # print(INIT)
         GOAL = GOAL[0]
         INIT = INIT[0]
+        # print("goal:\n", GOAL)
+        # print("init:\n", INIT)
         initial_state = f'I have that, {INIT}.'
         goal = f'My goal is to have that {GOAL}.'
         actions = PLAN
@@ -179,9 +187,11 @@ class BlocksWorldGFNTask(LightningModule):
                     ll_reward = self.get_ll_reward(actions, states, f"have that {GOAL}.")
                     ll_reward = -1 / ll_reward
                     ll_weight = self.args.ll_weight
-
+                # ll_reward = 3 * torch.pow(ll_reward, 1/3)
+                # ll_reward = torch.tensor([1,0]).to(self.device)
                 LOG_R.append(torch.log(reward + ll_weight * ll_reward.sum()))
-
+                # print("generated reward: \n", reward)
+                # print("generated ll: \n",  ll_reward)
                 generated_text = (actions, states)
                 self.replay_buffer.add(GOAL + INIT, str(generated_text), sample, torch.log(reward + ll_weight * ll_reward.sum()))
                 log_pf, log_bf = self.forward_prob(f"have that {GOAL}.", actions, states)
@@ -201,7 +211,7 @@ class BlocksWorldGFNTask(LightningModule):
                 _, actions, states, reward, _ = self.local_search(initial_state = f'I have that, {INIT}.',
                     goal = f'My goal is to have that {GOAL}.',
                     max_steps = self.args.step,
-                    plan=best_actions, 
+                    plan=best_actions,  # use the highest to explore
                     states=best_states,
                     eos_token_id=self.tokenizer.encode('\n', add_special_tokens=False)[0],
                     pf_temp = pf_temp)
@@ -221,6 +231,8 @@ class BlocksWorldGFNTask(LightningModule):
 
                 if log_reward > best_reward:
                     LOG_R.append(torch.log(reward + ll_weight * ll_reward.sum()))
+                    # print("generated reward: \n", reward)
+                    # print("generated ll: \n",  ll_reward)
                     generated_text = (actions, states)
                     self.replay_buffer.add(GOAL + INIT, str(generated_text), sample, torch.log(reward + ll_weight * ll_reward.sum()))
                     log_pf, log_bf = self.forward_prob(f"have that {GOAL}.", actions, states)
@@ -243,7 +255,7 @@ class BlocksWorldGFNTask(LightningModule):
             log_pf=LOG_PF,
             log_r=LOG_R_temperd,
             logz=self.logZ,
-            log_bf=None,
+            log_bf=log_bf,
             logpartition=True
         )
 
@@ -266,6 +278,7 @@ class BlocksWorldGFNTask(LightningModule):
             batch_size=self.args.batch_size
         )
 
+        # print(list(self.traj.values()))
 
         return loss
         
@@ -273,12 +286,14 @@ class BlocksWorldGFNTask(LightningModule):
     def test_step(self, problem, batch_idx):
         # pass
         if self.args.use_lora:
-            base_to_lora(self.model)    # 确保转换成lora
-        self.model.eval()           # 必须用eval
+            base_to_lora(self.model)   
+        self.model.eval()          
 
         INIT, GOAL, PLAN = problem
         GOAL = GOAL[0]
         INIT = INIT[0]
+        # print(GOAL)
+        # print(INIT)
         total_success = 0
         total_solution = 0
         success_text = []
@@ -308,6 +323,10 @@ class BlocksWorldGFNTask(LightningModule):
                 if (GOAL, INIT, actions_joined) not in success_text:
                     total_solution += 1
                     success_text.append((GOAL, INIT, actions_joined))
+        with open(f'/home/fangxu/GFlowPlan/success_plans_test/8_step/success_text_{batch_idx}.csv', mode='w', newline='', encoding='utf-8') as file:
+            writer = csv.writer(file)
+            writer.writerow(['Goal', "Initial State", 'Generated plan'])
+            writer.writerows(success_text)
 
         if total_success > 0:
             success = 1
@@ -330,9 +349,10 @@ class BlocksWorldGFNTask(LightningModule):
         )
 
     def validation_step(self, problem, batch_idx):
+        # pass
         if self.args.use_lora:
-            base_to_lora(self.model)    # 确保转换成lora
-        self.model.eval()           # 必须用eval
+            base_to_lora(self.model)    
+        self.model.eval()           
 
         INIT, GOAL, PLAN = problem
         GOAL = GOAL[0]
@@ -368,6 +388,12 @@ class BlocksWorldGFNTask(LightningModule):
                 if (GOAL, INIT, actions_joined) not in success_text:
                     total_solution += 1
                     success_text.append((GOAL, INIT, actions_joined))
+        with open(f'/home/fangxu/GFlowPlan/success_plans_valid/{self.args.step}_step/success_text_{batch_idx}.csv', mode='w', newline='', encoding='utf-8') as file:
+            writer = csv.writer(file)
+            # 写入列名
+            writer.writerow(['Goal', "Initial State", 'Generated plan'])
+            # 写入数据
+            writer.writerows(success_text)
 
         if total_success > 0:
             success = 1
@@ -388,8 +414,19 @@ class BlocksWorldGFNTask(LightningModule):
             prog_bar=True,
             batch_size=self.args.batch_size
         )
+        
+        sorted_dict = sorted(self.traj.items(), key=lambda x: x[1], reverse=True)
+
+        # Print the top 5 keys with the largest values
+        # for i in range(5):
+        #     key, value = sorted_dict[i]
+        #     print(f"{i+1}. {key}: {value}")
+
 
     def on_train_batch_start(self, problem, batch_idx):
+        # Update scheduled quantities
+        # reward_temp = self.get_reward_temp_at_step(self.global_step)
+        # self.reward_temperature = reward_temp
         pass
 
     def on_train_epoch_start(self):
@@ -411,6 +448,12 @@ class BlocksWorldGFNTask(LightningModule):
         
         # self.epsilon = 0
         self.log("scheduled/R_temperature", self.reward_temperature, sync_dist=True)
+
+        transition_path = f"/home/fangxu/GFlowPlan/transitions/{self.args.step}/transition.pkl"
+        with open(transition_path, 'wb') as f:
+            pickle.dump(self.transitions, f)
+
+
 
     def configure_optimizers(self):
         if self.args.use_4bit:
@@ -455,6 +498,7 @@ class BlocksWorldGFNTask(LightningModule):
             previous_action = ""
             current_state = last_state
             allowed_actions = generate_all_actions(last_state)
+            # print(prefix_past)
             allowed_actions_ = [act for act in allowed_actions if act.lower() not in actions]
 
             if len(allowed_actions_) != 0:
@@ -466,6 +510,7 @@ class BlocksWorldGFNTask(LightningModule):
                 else:
                     inputs = icl_template.replace("<init_state>", current_state.lstrip())\
                         .replace("<goals>", goal).replace("<action>", previous_action.lstrip()).replace("<step>", str(step).strip()).strip()
+                    # print(inputs)
                     input_ids = self.tokenizer.encode(inputs.lstrip() + "\n", return_tensors='pt').to(self.device)
                     
                     prefix_output = self.model(input_ids[:, :-1], use_cache=True)
@@ -476,8 +521,10 @@ class BlocksWorldGFNTask(LightningModule):
                         a = ac.lower()
                         action_ids = self.tokenizer.encode(a, add_special_tokens=False,return_tensors='pt').to(self.device)
                         input_ids_with_action = torch.cat([input_ids[:, -1:], action_ids], dim=-1)
+                        # 计算每个动作的输出和对应的 logits
                         outputs = self.model(input_ids_with_action, past_key_values=prefix_past, use_cache=True)
                         logits = outputs.logits  # 获取对应于 action_ids 的 logits
+                        # 计算 log softmax 来得到对数概率
                         total_log_prob = torch.zeros(1).cuda()
                         for i in range(1, input_ids_with_action.shape[-1]):
                             probs = torch.softmax(logits[:, i - 1, :], dim=-1)
@@ -490,12 +537,9 @@ class BlocksWorldGFNTask(LightningModule):
                     action_logits = action_logits.to(torch.float32)
 
                     probabilities = torch.exp(action_logits) / torch.sum(torch.exp(action_logits))
-                
-
+                    
                     dist = Categorical(probs=probabilities.t())
-
                     idx = dist.sample()
-
                     action = allowed_actions_[idx].lower()
                 
             else:
@@ -526,10 +570,12 @@ class BlocksWorldGFNTask(LightningModule):
             else:
                 # if s, a, s' have not been observed, use World Model to predict the state and store it.
                 lora_to_base(self.model)
-                
+                # world_output = self.query_LM(self.world_model, self.world_tokenizer, world_update_prompt, do_sample=False, num_return_sequences=1,
+                #                     eos_token_id=eos_token_id)[0]
                 world_output = self.query_LM(self.model, self.world_tokenizer, world_update_prompt, do_sample=False, num_return_sequences=1,
                                     eos_token_id=eos_token_id)[0]
                 world_change = world_output.split("[CHANGE]")[-1]
+                # print(world_change)
                 new_state = apply_change(world_change, last_state)
                 self.transitions[(last_state, last_action)] = new_state
             last_state = new_state
@@ -563,6 +609,9 @@ class BlocksWorldGFNTask(LightningModule):
         return: trajs, probability of each action in the trajs, log rewards of the trajs, log rewards of (state, action)
         """
         K = self.args.step // 2
+        # last_state = states[K]
+        # actions = actions[:K]
+        # states = states[:(K-1)]
         states = []
         actions = []
         if self.args.use_lora:
@@ -572,12 +621,23 @@ class BlocksWorldGFNTask(LightningModule):
         last_state = initial_state
 
         for step in range(max_steps):
+            # icl_template = prompt["icl_list"][step // 2]
+            # if step == 0:
+            #     previous_action = ""
+            #     current_state = last_state
+            # else:
+            #     previous_action = actions[step-1] + "\n"
+            #     current_state = states[step-1]
+            # previous_action = ""
+            # current_state = last_state
             
             # epsilon greedy
             if step < K:
                 action = plan[step]
             else:
                 allowed_actions = generate_all_actions(last_state)
+                # print("allowed: ",allowed_actions)
+                # print("actions", actions)
                 allowed_actions_ = [act for act in allowed_actions if act.lower() not in actions]
                 if len(allowed_actions_) != 0:
                     action = random.choice(allowed_actions_)
@@ -612,6 +672,8 @@ class BlocksWorldGFNTask(LightningModule):
             else:
                 # if s, a, s' have not been observed, use World Model to predict the state and store it.
                 lora_to_base(self.model)
+                # world_output = self.query_LM(self.world_model, self.world_tokenizer, world_update_prompt, do_sample=False, num_return_sequences=1,
+                #                     eos_token_id=eos_token_id)[0]
                 world_output = self.query_LM(self.model, self.world_tokenizer, world_update_prompt, do_sample=False, num_return_sequences=1,
                                     eos_token_id=eos_token_id)[0]
                 world_change = world_output.split("[CHANGE]")[-1]
@@ -638,6 +700,7 @@ class BlocksWorldGFNTask(LightningModule):
     def forward_prob(self, goal, actions, states):
         if self.args.use_lora:
             base_to_lora(self.model)
+        # self.model.train()
         prompt = sample_prompt(self.init_prompt, shuffle_prompt=False, num_shot=1)
 
         initial_state = states[0]
@@ -663,13 +726,11 @@ class BlocksWorldGFNTask(LightningModule):
             bsz = len(allowed_actions)  
             action_texts = [ac.lower() for ac in allowed_actions]
             action_ids = [self.tokenizer.encode(a, add_special_tokens=False, return_tensors='pt').to(self.device) for a in action_texts]
-            
             max_length = max(len(aid[0]) for aid in action_ids)
             padded_action_ids = [torch.cat([aid, torch.full((1, max_length - len(aid[0])), self.tokenizer.pad_token_id, device=self.device)], dim=-1) for aid in action_ids]
             batch_input_ids_with_actions = torch.cat([torch.cat([input_ids, pid], dim=-1) for pid in padded_action_ids], dim=0)
             batch_outputs = self.model(batch_input_ids_with_actions, use_cache=True)
             batch_logits = batch_outputs.logits
-            # calculate the probability
             total_log_prob = torch.zeros(bsz).cuda()
             for i in range(input_ids.shape[-1], batch_input_ids_with_actions.shape[-1]):
                 probs = torch.softmax(batch_logits[:, i - 1, :], dim=-1)
@@ -678,6 +739,8 @@ class BlocksWorldGFNTask(LightningModule):
                         total_log_prob[j] += torch.log(probs[j, batch_input_ids_with_actions[j, i]])
             action_logits = total_log_prob
 
+            # 计算概率分布
+            # action_logits = action_logits - torch.max(action_logits)
             probabilities = torch.exp(action_logits) / torch.sum(torch.exp(action_logits))
 
             idx = allowed_actions.index(action.capitalize())
@@ -698,7 +761,13 @@ class BlocksWorldGFNTask(LightningModule):
 
         prompt = sample_prompt(self.init_prompt, shuffle_prompt=False, num_shot=4)
         for step_idx, (state, action) in enumerate(zip(states, actions)):
+            
+            # if (step_idx, state, action, goal) in self.ll_reward_dict:
+            #     intuition = self.ll_reward_dict[(step_idx, state, action, goal)]
+            # else:
             icl_template = prompt["icl_list"][step_idx // 2]
+            # every two step, we will deduct the icl prompt
+            # so that the distribution of step length is more reasonable
             if step_idx == 0:
                 previous_action = ""
                 current_state = state
@@ -707,7 +776,7 @@ class BlocksWorldGFNTask(LightningModule):
                 current_state = states[step_idx-1]
             inputs = icl_template.replace("<init_state>", current_state.lstrip())\
                 .replace("<goals>", goal).replace("<action>", previous_action.lstrip())
-
+            # print(inputs + action)
             intuition = self.get_likelihood(inputs, [inputs + action.lstrip()])[0]
             self.ll_reward_dict[(step_idx, state, action, goal)] = intuition
             reward.append(intuition)
@@ -735,6 +804,7 @@ class BlocksWorldGFNTask(LightningModule):
             tokens[k, : len(t)] = torch.tensor(t)[:2048].long()
 
         with torch.no_grad():
+            # outputs = self.world_model(tokens)
             outputs = self.model(tokens)
             logits = outputs.logits
         acc_probs = torch.zeros(bsz).cuda()
@@ -744,6 +814,7 @@ class BlocksWorldGFNTask(LightningModule):
                 if tokens[j, i] != self.world_tokenizer.pad_token_id:
                     acc_probs[j] += torch.log(probs[j, tokens[j, i]])
 
+        # return torch.exp(acc_probs)
         return acc_probs
 
     def query_LM(self, worldmodel, tokenizer, prompt, eos_token_id, num_return_sequences=1, do_sample=True, temperature=0.7):
