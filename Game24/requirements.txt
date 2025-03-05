@@ -127,7 +127,7 @@ tokenizers==0.15.2
 tornado==6.4.1
 tqdm==4.66.3
 traitlets==5.14.1
-transformers==4.38.2
+transformers==4.48.0
 triton==2.2.0
 trl==0.7.1
 typing_extensions==4.10.0
