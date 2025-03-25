@@ -1,5 +1,5 @@
 accelerate==0.28.0
-torch==2.2.1
+torch==2.3.1
 torchdata==0.7.1
 pytorch-lightning
 backoff==2.2.1
