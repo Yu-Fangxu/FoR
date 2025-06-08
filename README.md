@@ -37,7 +37,7 @@ Check more detailed instructions in each branch.
 ## Citation
 ```
 @article{yu2024flow,
-  title={Flow of Reasoning: Efficient Training of LLM Policy with Divergent Thinking},
+  title={Flow of Reasoning: Training LLMs for Divergent Problem Solving with Minimal Examples},
   author={Yu, Fangxu and Jiang, Lai and Kang, Haoqiang and Hao, Shibo and Qin, Lianhui},
   journal={arXiv preprint arXiv:2406.05673},
   year={2024}
