@@ -1,6 +1,6 @@
 # Flow of Reasoning: Training LLMs for Divergent Reasoning with Minimal Examples
 
-Official code for "[Flow of Reasoning:Training LLMs for Divergent Reasoning with Minimal Examples](https://arxiv.org/abs/2406.05673v3)" Also check our [[Project Page](https://yu-fangxu.github.io/FoR.github.io/)]
+Official code for "[Flow of Reasoning:Training LLMs for Divergent Reasoning with Minimal Examples](https://arxiv.org/abs/2406.05673)" Also check our [[Project Page](https://yu-fangxu.github.io/FoR.github.io/)]
 
 ![plot](./images/task.png)
 
@@ -8,7 +8,7 @@ Official code for "[Flow of Reasoning:Training LLMs for Divergent Reasoning with
 
 ![plot](./images/main_arch.png)
 
-Our FoR formulates multi-step reasoning tasks as flow:
+Our FoR formulates multi-step reasoning tasks as a flow:
 1. Design reward $R(s_n)$ of terminal states for different tasks.
 2. Collect trajectories with the local search technique.
 3. Training LLM policy $P_{F}$ with trajectory balance loss.
@@ -36,10 +36,9 @@ Check more detailed instructions in each branch.
 
 ## Citation
 ```
-@article{yu2024flow,
-  title={Flow of Reasoning: Training LLMs for Divergent Problem Solving with Minimal Examples},
+@inproceedings{yuflow,
+  title={Flow of Reasoning: Training LLMs for Divergent Reasoning with Minimal Examples},
   author={Yu, Fangxu and Jiang, Lai and Kang, Haoqiang and Hao, Shibo and Qin, Lianhui},
-  journal={arXiv preprint arXiv:2406.05673},
-  year={2024}
+  booktitle={Forty-second International Conference on Machine Learning}
 }
 ```
