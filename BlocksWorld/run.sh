@@ -4,7 +4,7 @@ mkdir -p ./logs/step_${step} && \
 CUDA_VISIBLE_DEVICES=6 python main.py \
     --step $step \
     --n_samples 4 \
-    --epochs 20 \
+    --epochs 10 \
     --ll-weight 1.5 \
     --pretrained_model "meta-llama/Meta-Llama-3-8B" \
     --reward_temp_end 2 \
