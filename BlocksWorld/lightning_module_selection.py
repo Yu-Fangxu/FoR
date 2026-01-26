@@ -82,7 +82,7 @@ class BlocksWorldGFNTask(LightningModule):
         self.reward_temperature = self.args.reward_temp_start
         self.pf_temperature = self.args.pf_temp_start
         self.use_buffer_prob = self.args.use_buffer_prob
-        with open(f"/home/fangxu/GFlowPlan/prompts/pool_prompt_v2_step_{args.step}.json") as f:
+        with open(f"./prompts/pool_prompt_v2_step_{args.step}.json") as f:
             self.init_prompt = json.load(f)
         
         bnb_config = BitsAndBytesConfig(
@@ -97,7 +97,7 @@ class BlocksWorldGFNTask(LightningModule):
         self.world_tokenizer = AutoTokenizer.from_pretrained(args.world_model, add_bos_token=False, padding_side='left')
         self.world_tokenizer.pad_token = self.world_tokenizer.eos_token
 
-        transition_path = f"/home/fangxu/GFlowPlan/transitions/{args.step}/transition.pkl"
+        transition_path = f"./transitions/{args.step}/transition.pkl"
 
         if os.path.exists(transition_path):
             with open(transition_path, 'rb') as f:
@@ -322,7 +322,7 @@ class BlocksWorldGFNTask(LightningModule):
                 if (GOAL, INIT, actions_joined) not in success_text:
                     total_solution += 1
                     success_text.append((GOAL, INIT, actions_joined))
-        with open(f'/home/fangxu/GFlowPlan/success_plans_test/8_step/success_text_{batch_idx}.csv', mode='w', newline='', encoding='utf-8') as file:
+        with open(f'./success_plans_test/8_step/success_text_{batch_idx}.csv', mode='w', newline='', encoding='utf-8') as file:
             writer = csv.writer(file)
             writer.writerow(['Goal', "Initial State", 'Generated plan'])
             writer.writerows(success_text)
@@ -387,7 +387,7 @@ class BlocksWorldGFNTask(LightningModule):
                 if (GOAL, INIT, actions_joined) not in success_text:
                     total_solution += 1
                     success_text.append((GOAL, INIT, actions_joined))
-        with open(f'/home/fangxu/GFlowPlan/success_plans_valid/{self.args.step}_step/success_text_{batch_idx}.csv', mode='w', newline='', encoding='utf-8') as file:
+        with open(f'./success_plans_valid/{self.args.step}_step/success_text_{batch_idx}.csv', mode='w', newline='', encoding='utf-8') as file:
             writer = csv.writer(file)
             # 写入列名
             writer.writerow(['Goal', "Initial State", 'Generated plan'])
@@ -448,7 +448,7 @@ class BlocksWorldGFNTask(LightningModule):
         # self.epsilon = 0
         self.log("scheduled/R_temperature", self.reward_temperature, sync_dist=True)
 
-        transition_path = f"/home/fangxu/GFlowPlan/transitions/{self.args.step}/transition.pkl"
+        transition_path = f"./transitions/{self.args.step}/transition.pkl"
         with open(transition_path, 'wb') as f:
             pickle.dump(self.transitions, f)
 
